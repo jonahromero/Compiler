@@ -196,7 +196,7 @@ void ExprGenerator::visit(Expr::Identifier& expr)
 	{
 		returnValue(ILExprResultBuilder{}
 			.createNamedReference(expr.ident, env.getVariableReferenceType(expr.ident))
-			.withOutputAt(env.getILVariableType(expr.ident))
+			.withOutputAt(env.getVariableILAlias(expr.ident))
 			.withExprType(env.getVariableType(expr.ident))
 			.buildAsPersistent());
 	}
