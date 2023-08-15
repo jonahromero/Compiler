@@ -17,8 +17,8 @@ namespace Stmt
 	};
 
 
-	template<typename Derived, typename ReturnType>
-	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {};
+	template<typename Derived>
+	class CloneVisitor : public Expr::CloneVisitor<Derived> {};
 	template<typename T>
 	class VisitorReturner : public Stmt::VisitorReturnerType<T> {};
 	class Visitor : public Stmt::VisitorType {};
@@ -47,20 +47,21 @@ namespace Stmt
 		::Expr::UniquePtr expr;
 	};
 
-	struct Function : Stmt::Visitable<Function> {
-		Function(TemplateDecl templateInfo, std::string_view name, std::vector<VarDecl> params, 
-			::Expr::UniquePtr retType, StmtBody body, bool isExported) 
-		: templateInfo(std::move(templateInfo)), name(name), params(std::move(params)), retType(std::move(retType)),
-			body(std::move(body)), isExported(isExported) {}
+	struct Function : Stmt::Visitable<Function> 
+	{
+		Function(TemplateDecl templateInfo, std::string_view name, 
+			std::vector<VarDecl> params, Expr::UniquePtr retType, StmtBody body, bool isExported) 
+		: templateInfo(std::move(templateInfo)), name(name), params(std::move(params)), 
+			retType(std::move(retType)), body(std::move(body)), isExported(isExported) {}
+
 		Function() = default;
 
-		bool isExported;
-		std::string_view name;
-
 		TemplateDecl templateInfo;
+		std::string_view name;
 		std::vector<VarDecl> params;
 		::Expr::UniquePtr retType;
 		StmtBody body;
+		bool isExported;
 
 		bool isTemplate() const { return !templateInfo.params.empty(); }
 	};
@@ -68,12 +69,13 @@ namespace Stmt
 	struct Bin : Stmt::Visitable<Bin> {
 		Bin() = default;
 		Bin(TemplateDecl templateInfo, std::string_view name, std::vector<VarDecl> body, bool isExported) 
-			: templateInfo(std::move(templateInfo)), name(name), body(std::move(body)), isExported(isExported) {}
+			: isExported(isExported), name(name), templateInfo(std::move(templateInfo)), body(std::move(body)) {}
+
 		bool isExported;
 		std::string_view name;
-
 		TemplateDecl templateInfo;
 		std::vector<VarDecl> body;
+
 		bool isTemplate() const { return !templateInfo.params.empty(); }
 	};
 
@@ -92,7 +94,7 @@ namespace Stmt
 
 	struct VarDef : Stmt::Visitable<VarDef> {
 		VarDef(GenericDecl decl, bool isExported, std::optional<Expr::UniquePtr> init = std::nullopt) 
-			: decl(std::move(decl)), isExported(isExported), initializer(std::move(init)) {}
+			: isExported(isExported), decl(std::move(decl)), initializer(std::move(init)) {}
 
 		bool isExported;
 		GenericDecl decl;
@@ -140,10 +142,12 @@ namespace Stmt
 		std::string_view opcode;
 		ArgList argList;
 	};
+
 	struct Label : Stmt::Visitable<Label> {
 		Label(std::string_view label) : label(label) {}
 		std::string_view label;
 	};
+
 	struct NullStmt : Stmt::Visitable<NullStmt> {
 	};
 }

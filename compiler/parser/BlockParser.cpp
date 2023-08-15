@@ -11,16 +11,13 @@ Stmt::UniquePtr BlockParser::funcStmt()
 	else if (matchType(LET)) return letStmt(false);
 	//case IDENT: no defined path
 	else return miscStmt();
-	__assume(false); //unreachable code
 }
-
 
 auto BlockParser::opcode()->Stmt::UniquePtr
 {
 	SourcePosition sourcePos = previousSourcePos();
 	auto opcode = peekPrevious().lexeme;
-	auto args = argList();
-	expect(NEWLINE);
+	auto args = argList(NEWLINE);
 	return Stmt::makeStmt<Stmt::Instruction>(sourcePos, opcode, std::move(args));
 }
 
@@ -125,7 +122,7 @@ auto BlockParser::varDecl() -> Stmt::VarDecl
 {
 	auto name = expectIdent();
 	expect(COLON);
-	return Stmt::VarDecl(name, expr());
+	return Stmt::VarDecl(name, typeExpr());
 }
 
 auto BlockParser::decl() -> Stmt::GenericDecl
@@ -137,7 +134,7 @@ auto BlockParser::decl() -> Stmt::GenericDecl
 		return Stmt::TypeDecl(name);
 	}
 	else {
-		return Stmt::VarDecl(name, expr());
+		return Stmt::VarDecl(name, typeExpr());
 	}
 }
 

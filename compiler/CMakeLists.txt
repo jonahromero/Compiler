@@ -18,9 +18,9 @@ endif()
 
 #find_package(spdlog REQUIRED)
 
-
+add_compile_options(-Wno-reorder-ctor -Wno-overloaded-virtual -Wno-parentheses-equality)
 #Miscellaneous helpers
-add_subdirectory(common)
+add_subdirectory(errors)
 add_subdirectory(util)
 
 # First stage to create AST

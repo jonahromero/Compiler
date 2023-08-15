@@ -6,10 +6,11 @@ class Parser
 {
 public:
 	Parser(std::span<const Token> tokens)
-		: StmtParser(tokens) {}
+		: StmtParser(tokens, context) {}
 
 	Stmt::Program program();
-private:	
+private:
+	ParserContext context;
 	//error handling
 	void tryToAddStmt(Stmt::Program& program);
 	void synchronize();

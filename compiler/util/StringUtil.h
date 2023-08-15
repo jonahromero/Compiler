@@ -22,7 +22,7 @@ namespace util
 
 	namespace detail
 	{	
-		std::string_view removeLeadingZeroes(std::string_view view) {
+		inline std::string_view removeLeadingZeroes(std::string_view view) {
 			auto i = std::find_if(view.begin(), view.end(), [](auto& c) { return c != '0'; });
 			return view.substr(std::distance(view.begin(), i));
 		}
@@ -66,6 +66,17 @@ namespace util
 		return retval;
 	}
 
+	inline auto toStringWithOrdinalSuffix(size_t i) 
+	{
+		std::string asStr = std::to_string(i);
+		switch (i % 10) {
+		case 1:	return asStr + "st";
+		case 2:	return asStr + "nd";
+		case 3:	return asStr + "rd";
+		default: return asStr + "th";
+		}
+	}
+
 	namespace detail {
 		constexpr size_t textSize(char a) { return 1; }
 		constexpr size_t textSize(std::string_view a) { return a.size(); }
@@ -81,10 +92,31 @@ namespace util
 		}
 	}
 
+	inline std::string joinVector(std::string_view inbetween, std::vector<std::string> const& items) {
+		std::string retval; 
+		for (int i = 0; i < items.size(); i++) {
+			retval.append(items[i]);
+			if (i != items.size() - 1) {
+				retval += inbetween;
+			}
+		}
+		return retval;
+	}
+
 	template<typename...Args>
 	auto strBuilder(Args&&...args) -> std::string {
 		std::string str; str.reserve((detail::textSize(args) + ...));
 		(detail::addToStr(str, std::forward<Args>(args)), ...);
 		return str;
 	}
+
+	struct StringHash
+	{
+		using hash_type = std::hash<std::string_view>;
+		using is_transparent = void;
+
+		std::size_t operator()(const char* str) const { return hash_type{}(str); }
+		std::size_t operator()(std::string_view str) const { return hash_type{}(str); }
+		std::size_t operator()(std::string const& str) const { return hash_type{}(str); }
+	};
 }

@@ -5,19 +5,20 @@
 #include "IntTypes.h"
 #include "SourcePosition.h"
 
-class Token {
+class Token 
+{
 public:
 	enum class Type : u8 {
-		COUNT, WITH, FROM, IF, ELSE, RETURN, EXPORT, MODULE, IMPORT, FN, BIN, LET, TYPE,
-		IDENT, NUMBER, STRING, OPCODE, REGISTER, FLAG, 
+		COUNT, WITH, FROM, IF, ELSE, RETURN, EXPORT, MODULE, IMPORT, FN, BIN, LET, TYPE, AS,
+		IDENT, NUMBER, STRING, OPCODE, REGISTER, FLAG, SIZEOF, DEREF,
 		COMMA, COLON, PESO, PERIOD, BACKSLASH,
-		PLUS, MINUS, SLASH, STAR, MODULO, TYPE_DEREF, ELLIPSES, ARROW,
+		PLUS, MINUS, SLASH, STAR, MODULO, TYPE_DEREF, ELLIPSES, ARROW, QUESTION_MARK,
 		EQUAL, EQUAL_EQUAL, NOT_EQUAL,
-		LESS, LESS_EQUAL, GREATER, GREATER_EQUAL,
+		LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, GREATER_CONCATENATOR,
 		AND, OR, BANG, SHIFT_LEFT, SHIFT_RIGHT,
 		BIT_OR, BIT_AND, BIT_XOR, BIT_NOT,
-		LEFT_PARENTH, RIGHT_PARENTH, LEFT_BRACKET, RIGHT_BRACKET,
-		MUT, TRUE, FALSE, 
+		LEFT_PARENTH, RIGHT_PARENTH, LEFT_BRACKET, RIGHT_BRACKET, LEFT_BRACE, RIGHT_BRACE,
+		MUT, TRUE, FALSE, NONE,
 		/*White space tokens*/
 		NEWLINE, INDENT, DEDENT, 
 		EOF_
@@ -51,15 +52,15 @@ inline auto literalToStr(Token::Literal const& literal) -> std::string {
 inline auto tokenTypeToStr(Token::Type tokenType) -> std::string_view 
 {
 	static constexpr std::array<std::string_view, static_cast<size_t>(Token::Type::EOF_) + 1> converter = {
-		"Count", "With", "From", "If", "Else", "Return", "Export", "Module", "Import", "Function", "Bin", "Let", "Type",
-		"Identifier", "Number", "String", "Opcode", "Register", "Flag",
+		"Count", "With", "From", "If", "Else", "Return", "Export", "Module", "Import", "Function", "Bin", "Let", "Type", "As",
+		"Identifier", "Number", "String", "Opcode", "Register", "Flag", "Sizeof", "Deref",
 		"Comma", "Colon", "Peso", "Period", "BackSlash", 
-		"Plus", "Minus", "Slash", "Star", "Modulo", "Type Operator", "Ellipses", "Arrow",
+		"Plus", "Minus", "Slash", "Star", "Modulo", "Type Operator", "Ellipses", "Arrow", "Question Mark",
 		"Equal", "Equal Equal", "Not Equal",
-		"Less than", "Less than or Equal", "Greater than", "Greater than or Equal",
+		"Less than", "Less than or Equal", "Greater than", "Greater than or Equal", "Greater Concatenator",
 		"And", "Or", "Not", "Shift Left", "Shift Right",
 		"Bitwise Or", "Bitwise And", "Bitwise Xor", "Bitwise Not",
-		"Left Parenthesis", "Right Parenthesis", "Left Bracket", "Right Bracket",
+		"Left Parenthesis", "Right Parenthesis", "Left Bracket", "Right Bracket", "Left Brace", "Right Brace",
 		"Mutable", "True", "False",
 		"Newline", "Indent", "Dedent",
 		"End of File"

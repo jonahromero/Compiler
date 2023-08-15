@@ -2,6 +2,10 @@
 //
 
 #include <iostream>
+#include "Parser.h"
+#include "Lexer.h"
+#include "ILGenerator.h"
+#include "ILPrinter.h"
 
 /* Things to do:
 * Make DeepCopy a visitor class. dont know why we embedded it in the classes
@@ -10,30 +14,50 @@
 
 const char* test =
 R"(
-bin Pos:
-    x : u8
-    y : u8
+bin<T : type> Pos:
+    x : T
+    y : T
 
-fn equal_msg(var : u8) -> u8: ;line 5 
-    let arg : i16 = 2
-    arg = 5
-    if arg == 2:
-        arg = 1
-    else:
+bin<U : type> Rectangle:
+    left : Pos<U>
+    top  : Pos<U>
+
+fn is_square(rect : Rectangle<u8>) -> bool:
+    let other = deref(0x12) as (u8, bool)->(u8)->bool
+    let result = other(1, true)
+    let temp : Rectangle<u8> = [{
+        left:{1, 2}, 
+        top:{0, 1} 
+    }, 1, 2, 3, "hello"]
+    ;let list : mut u8[2][3]
+    ;list[2,3] = 3
+    let other : u8 = 4 + temp.top.y
+    ;let ref : u8& = &other
+    ;let next : u8&& = &ref
+
+fn equal_msg(var : u8) -> u8: 
+    let error : u16 = 5
+    let arg : mut i16 = 2 + 54 * 82 / 200
+    ;let other : bool = 2 + 40 + error;
+    if 10:
+        1
+    else: ;line 25
         2 + 33
-    arg = arg + 12
+    12
     ;return myVar
 )";
 
 int main()
 {
-    /*
-    Compiler compiler;
-    auto il_program = compiler.compile(test);
-    for (auto& il : il_program) {
-        ILPrinter{}.printIL(il);
-        //std::cout << std::hex << +byte << std::endl;
-    }*/
+    auto tokens = Lexer{ test }.generateTokens();
+    auto program = Parser{ tokens }.program();
+    auto il = ILGenerator{}.generate(std::move(program));
+    if (!il.has_value()) return 1;
+    for (auto& instr : il.value()) 
+    {
+        IL::Printer{}.printIL(instr);
+    }
+
     return 0;
 }
 

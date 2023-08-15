@@ -1,8 +1,9 @@
 #pragma once
-#include "Token.h"
 #include <vector>
 #include <memory>
 #include <string>
+#include <optional>
+#include "Token.h"
 #include "Visitors.h"
 
 namespace Expr 
@@ -11,15 +12,16 @@ namespace Expr
 		: public visit::VisitableBase<Expr,
 		struct Binary, struct Unary, struct Identifier, struct Literal, 
 		struct Parenthesis, struct FunctionCall, struct Indexing, struct MemberAccess,
-		struct Register, struct Flag, struct CurrentPC,
-		struct TemplateCall
+		struct Register, struct Flag, struct CurrentPC, struct ListLiteral, struct StructLiteral,
+		struct TemplateCall, struct Questionable, struct Reference, struct FunctionType, struct Cast,
+		struct KeyworkFunctionCall
 	> {
 	public:
 		SourcePosition sourcePos;
 	};
 
-	template<typename Derived, typename ReturnType>
-	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {};
+	template<typename Derived>
+	class CloneVisitor : public Expr::CloneVisitor<Derived> {};
 	template<typename T>
 	class VisitorReturner : public Expr::VisitorReturnerType<T> {};
 	class Visitor : public Expr::VisitorType {};
@@ -53,6 +55,7 @@ namespace Expr
 
 		UniquePtr expr;
 	};
+
 	struct FunctionCall : Expr::Visitable<FunctionCall> {
 		FunctionCall(UniquePtr lhs, std::vector<UniquePtr> args)
 			: lhs(std::move(lhs)), arguments(std::move(args)) {}
@@ -60,13 +63,22 @@ namespace Expr
 		UniquePtr lhs;
 		std::vector<UniquePtr> arguments;
 	};
-	struct TemplateCall : Expr::Visitable<TemplateCall> {
-		TemplateCall(UniquePtr lhs, std::vector<UniquePtr> templateArgs, bool isMut)
-			: lhs(std::move(lhs)), templateArgs(std::move(templateArgs)), isMut(isMut) {}
 
-		std::vector<UniquePtr> templateArgs;
+	struct KeyworkFunctionCall : Expr::Visitable<KeyworkFunctionCall>
+	{
+		KeyworkFunctionCall(Token::Type function, std::vector<UniquePtr> args)
+			: function(function), args(std::move(args)) {}
+
+		Token::Type function;
+		std::vector<UniquePtr> args;
+	};
+
+	struct TemplateCall : Expr::Visitable<TemplateCall> {
+		TemplateCall(UniquePtr lhs, std::vector<UniquePtr> templateArgs)
+			: lhs(std::move(lhs)), templateArgs(std::move(templateArgs)) {}
+
 		UniquePtr lhs;
-		bool isMut;
+		std::vector<UniquePtr> templateArgs;
 	};
 	struct Indexing : Expr::Visitable<Indexing> {
 		Indexing(UniquePtr lhs, UniquePtr innerExpr)
@@ -80,6 +92,55 @@ namespace Expr
 
 		UniquePtr lhs;
 		std::string_view member;
+	};
+
+	struct ListLiteral : Expr::Visitable<ListLiteral> 
+	{
+		ListLiteral(std::vector<UniquePtr> elements)
+			: elements(std::move(elements)) {}
+		std::vector<UniquePtr> elements;
+	};
+
+	struct StructLiteral : Expr::Visitable<StructLiteral> 
+	{
+		StructLiteral(std::vector<UniquePtr> initializers, std::optional<std::vector<std::string_view>> names = std::nullopt)
+			: initializers(std::move(initializers)), names(std::move(names)) {}
+
+		std::vector<UniquePtr> initializers;
+		std::optional<std::vector<std::string_view>> names;
+	};
+
+	struct FunctionType : Expr::Visitable<FunctionType> 
+	{
+		FunctionType(std::vector<UniquePtr> paramTypes, UniquePtr returnType)
+			:	paramTypes(std::move(paramTypes)), returnType(std::move(returnType)) {}
+
+		std::vector<UniquePtr> paramTypes;
+		UniquePtr returnType;
+	};
+
+	struct Cast : Expr::Visitable<Cast>
+	{
+		Cast(UniquePtr expr, UniquePtr type)
+			: expr(std::move(expr)), type(std::move(type)) {}
+
+		UniquePtr expr, type;
+	};
+
+	struct Questionable : Expr::Visitable<Questionable>
+	{
+		Questionable(UniquePtr expr) 
+			: expr(std::move(expr)) {}
+
+		UniquePtr expr;
+	};
+
+	struct Reference : Expr::Visitable<Reference> 
+	{
+		Reference(UniquePtr expr)
+			: expr(std::move(expr)) {}
+
+		UniquePtr expr;
 	};
 
 	struct Identifier : Expr::Visitable<Identifier> {

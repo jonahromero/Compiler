@@ -3,6 +3,7 @@
 #include "StringUtil.h"
 #include "AsciiTable.h"
 #include "ReservedIdentifiers.h"
+#include "CompilerError.h"
 #include "spdlog\spdlog.h"
 
 using enum Token::Type;
@@ -53,20 +54,23 @@ auto Lexer::calcSourcePos() -> SourcePosition
 
 void Lexer::addNewline()
 {
-	if (!tokens.empty() && tokens.back().type != NEWLINE) {
-		addWhitespaceToken(NEWLINE);
+	if (nesting.empty()) {
+		if (!tokens.empty() && tokens.back().type != NEWLINE) {
+			addWhitespaceToken(NEWLINE);
+		}
+		atStart = true;
+		currentSpaces = 0;
 	}
 	readjustStart();
-	atStart = true;
-	currentSpaces = 0;
 	line++;
 }
 
-void Lexer::addToken(Token::Type type, Token::Literal literal) {
-#ifndef NDEBUG
-	if (type == NEWLINE || type == INDENT || type == DEDENT) { throw "Use addWhiteSpaceToken() instead"; }
-#endif
-	checkIndentation();
+void Lexer::addToken(Token::Type type, Token::Literal literal) 
+{
+	COMPILER_DEBUG {
+		if (type == NEWLINE || type == INDENT || type == DEDENT) { throw "Use addWhiteSpaceToken() instead"; }
+	}
+	if(nesting.empty()) checkIndentation();
 	tokens.push_back(Token(type, currentStringView(), literal, calcSourcePos()));
 	readjustStart();
 }
@@ -84,6 +88,9 @@ void Lexer::tryToToken()
 	}
 	catch (UnexpectedCharacter const& err) {
 		spdlog::error("[Line: {}] Unknown character encountered: \'{}\'.", err.line, err.unexpected);
+	}
+	catch (UnmatchedNester const& err) {
+		spdlog::error("[Line: {}] Closing nester \'{}\' does not match opening nester: \'{}\' on line {}.", err.line, err.foundNester, err.prevNester, err.prevNesterLine);
 	}
 	catch (ExpectedCharacter const& err) {
 		if (err.found.has_value()) {
@@ -119,14 +126,26 @@ void Lexer::token() {
 	case '/': addToken(SLASH); return;
 	case '^': addToken(BIT_XOR); return;
 	case '~': addToken(BIT_NOT); return;
-	case '(': addToken(LEFT_PARENTH); return;
-	case ')': addToken(RIGHT_PARENTH); return;
-	case '[': addToken(LEFT_BRACKET); return;
-	case ']': addToken(RIGHT_BRACKET); return;
+	case '?': addToken(QUESTION_MARK); return;
+	case '(': addToken(LEFT_PARENTH); addNestingLevel(letter); return;
+	case ')': addToken(RIGHT_PARENTH); removeNestingLevel(letter); return;
+	case '{': addToken(LEFT_BRACE); addNestingLevel(letter); return;
+	case '}': addToken(RIGHT_BRACE); removeNestingLevel(letter); return;
+	case '[': addToken(LEFT_BRACKET); addNestingLevel(letter);  return;
+	case ']': addToken(RIGHT_BRACKET); removeNestingLevel(letter); return;
 	case '=': match('=') ? addToken(EQUAL_EQUAL) : addToken(EQUAL); return;
 	case '!': match('=') ? addToken(NOT_EQUAL) : addToken(BANG); return;
 	case '<': match('=') ? addToken(LESS_EQUAL) : (match('<') ? addToken(SHIFT_LEFT) : addToken(LESS)); return;
-	case '>': match('=') ? addToken(GREATER_EQUAL) : (match('>') ? addToken(SHIFT_RIGHT) : addToken(GREATER)); return;
+	case '>': {
+		if (match('=')) { addToken(GREATER_EQUAL); }
+		else {
+			addToken(GREATER);
+			if (match('>')) {
+				addToken(GREATER_CONCATENATOR); addToken(GREATER);
+			}
+		}
+		return;
+	}
 	case '&': match('&') ? addToken(AND) : addToken(BIT_AND); return;
 	case '|': match('|') ? addToken(OR) : addToken(BIT_OR); return;
 	case '.': match('.') ? (match('.') ? addToken(ELLIPSES) : shortEllipses()) : addToken(PERIOD); return;
@@ -220,6 +239,28 @@ void Lexer::binary()
 	consumeWhile(util::isBinary);
 	auto literal = util::binaryToIntegral<uint16_t>(currentStringView().substr(1));
 	addToken(NUMBER, literal);
+}
+
+void Lexer::addNestingLevel(char current)
+{
+	nesting.push(std::make_pair(current, calcSourcePos()));
+}
+
+void Lexer::removeNestingLevel(char current)
+{
+	char expects;
+	switch (current) {
+	case '}': expects = '{'; break;
+	case ']': expects = '['; break;
+	case ')': expects = '('; break;
+	default: COMPILER_NOT_REACHABLE;
+	}
+	if (expects != nesting.top().first) {
+		throw UnmatchedNester(line, currentPos(), current, nesting.top().second.line, nesting.top().first);
+	}
+	else {
+		nesting.pop();
+	}
 }
 
 void Lexer::unexpectedCharacter(char letter) {

@@ -1,7 +1,9 @@
 
 #pragma once
 #include <stack>
+#include <queue>
 #include <algorithm>
+#include <unordered_set>
 
 struct PureGraph 
 {
@@ -13,20 +15,23 @@ struct PureGraph
         EdgeIterator(PureGraph const& graph, size_t state, bool isEndIterator) 
             : graph(graph), state(state), out(0) {
                 if(isEndIterator) out = graph.nodeCount();
-                else out = findNextOut();
-            }
+                else {
+                    out = (hasConnection(0) ? 0 : findNextOut());
+                }
+        }
 
+        bool operator==(ThisType const& other) const { return other.state == state && other.out == out; }
         ThisType operator++(int) { auto temp = *this; out = findNextOut(); return temp; }
         ThisType& operator++() { out = findNextOut(); return *this;}
         size_t operator*() const { return out; }
     private:
+        bool hasConnection(size_t other) const {
+            if constexpr (DoPred) return graph.hasEdge(other, state);
+            else return graph.hasEdge(state, other);
+        }
         size_t findNextOut() const {
-            if(out == 0 && graph.hasEdge(state, 0)) return 0;
             for(size_t i = out + 1; i < graph.nodeCount(); i++) {
-                bool existsEdge;
-                if constexpr (DoPred) existsEdge = graph.hasEdge(i, state); 
-                else existsEdge = graph.hasEdge(i, state);
-                if(existsEdge) return i;
+                if(hasConnection(i)) return i;
             }
             return graph.nodeCount();
         }
@@ -54,7 +59,7 @@ struct PureGraph
     static PureGraph fullyConnected(size_t totalNodes) {
         auto temp = PureGraph(totalNodes);
         for(auto& row : temp.edges) {
-            for(auto& edge : row) 
+            for(auto edge : row) 
                 edge = true;
         } 
         return temp;
@@ -64,12 +69,13 @@ struct PureGraph
         totalNodes++;
         //increase table size
         for(auto& src : edges) {src.push_back(false);}
-        edges.emplace_back(std::vector<bool>(nodes.size()));
+        edges.emplace_back(std::vector<bool>(edges.size() + 1));
         return totalNodes - 1;
     }
 
     size_t edgeCount() const { return totalEdges; }
     size_t nodeCount() const { return totalNodes; }
+    void removeAllEdges(size_t src) { for (auto succ : out(src)) removeEdge(src, succ); }
     void removeEdge(size_t src, size_t dst) { edges[src][dst] = false; if(hasEdge(src, dst)) totalEdges--;}
     void addEdge(size_t src, size_t dst) { edges[src][dst] = true; totalEdges++; }
     bool hasEdge(size_t src, size_t dst) const { return edges[src][dst]; }
@@ -79,7 +85,7 @@ struct PureGraph
     template<typename Callable>
     void bfs(size_t startNode, Callable callable) const {
         std::queue<size_t> worklist; worklist.push(startNode);
-        std::set<size_t> visited; visited.push(startNode);
+        std::unordered_set<size_t> visited; visited.insert(startNode);
         while(!worklist.empty()){
             auto n = worklist.front();
             callable(n);
@@ -93,6 +99,24 @@ struct PureGraph
         } 
     }
 
+    template<typename Callable>
+    void dfs(size_t startNode, Callable callable) const {
+        std::stack<size_t> worklist; worklist.push(startNode);
+        std::unordered_set<size_t> visited; visited.insert(startNode);
+        while (!worklist.empty()) {
+            auto n = worklist.top();
+            worklist.pop();
+            for (auto succ : out(n)) {
+                if (visited.count(succ) == 0) {
+                    visited.insert(succ);
+                    worklist.push(succ);
+                }
+            }
+            callable(n);
+        }
+    }
+
+
 private:
     PureGraph(size_t totalNodes) : totalNodes(totalNodes) {
         edges.resize(totalNodes);
@@ -100,27 +124,31 @@ private:
             row.resize(totalNodes);
     }
 
-    size_t totalNodes = 0 totalEdges = 0;
+    size_t totalNodes = 0, totalEdges = 0;
     std::vector<std::vector<bool>> edges;
 };
 
 template<typename T>
 struct Graph : PureGraph
 {
+    Graph(PureGraph const& otherShape) 
+        : PureGraph(otherShape) {
+        m_nodeData.resize(otherShape.nodeCount());
+    }
     Graph(size_t totalNodes = 0) 
-        : PureGraph(PureGraph::trivialGraph()) {
-        nodeData.resize(totalNodes);
+        : PureGraph(PureGraph::trivialGraph(totalNodes)) {
+        m_nodeData.resize(totalNodes);
     }
 
-    T& nodeData(size_t i) { return nodeData[i]; }
-    T const& nodeData(size_t i) const { return nodeData[i]; }
+    T& nodeData(size_t i) { return m_nodeData[i]; }
+    T const& nodeData(size_t i) const { return m_nodeData[i]; }
 
     size_t createNode(T data) {
         auto node = this->PureGraph::createNode();
-        nodeData.emplace_back(std::move(data));
+        m_nodeData.emplace_back(std::move(data));
         return node;
     }
 
 private:
-    std::vector<T> nodeData;
+    std::vector<T> m_nodeData;
 };

@@ -5,6 +5,7 @@
 #include <stack>
 #include "Token.h"
 #include "StreamViewer.h"
+#include "ExpectationErrors.h"
 
 class Lexer
 	: public StreamViewer<char> {
@@ -14,7 +15,18 @@ public:
 	public:
 		LexicalError(size_t line, size_t position)
 			: line(line), position(position) {}
+
 		size_t line, position;
+	};
+
+	class UnmatchedNester 
+		: public LexicalError {
+	public:
+		UnmatchedNester(size_t line, size_t position, char foundNester, size_t prevNesterLine, char prevNester)
+			: LexicalError(line, position), prevNesterLine(prevNesterLine), prevNester(prevNester), foundNester(foundNester) {}
+
+		size_t prevNesterLine;
+		char prevNester, foundNester;
 	};
 
 	class ShortEllipses
@@ -57,6 +69,8 @@ private:
 	void addWhitespaceToken(Token::Type type, Token::Literal literal = Token::Literal());
 	void checkIndentation();
 	void emptyIndentStackUntil(size_t value);
+	void addNestingLevel(char current);
+	void removeNestingLevel(char current);
 	auto calcSourcePos()-> SourcePosition;
 	void addNewline();
 
@@ -80,5 +94,6 @@ private:
 	std::vector<Token> tokens;
 	std::stack<size_t> indentStack;
 	size_t line = 1, currentSpaces = 0;
+	std::stack<std::pair<char, SourcePosition>> nesting;
 	bool atStart = true;
 };

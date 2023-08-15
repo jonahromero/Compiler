@@ -5,114 +5,107 @@
 #include "StmtPrinter.h"
 #include "spdlog/fmt/fmt.h"
 #include <iostream>
-#include "GraphUtil.h"
 #include "StringUtil.h"
 
-class ILPrinter
-	: public IL::Visitor, public StmtPrinter {
-public:
+namespace IL
+{
+	class Printer
+		: public ::IL::Visitor, public Stmt::Printer 
+	{
+		using Stmt::Printer::visit;
+	public:
 
-	void printIL(IL::UniquePtr& expr) {
-		this->IL::Visitor::visitPtr(expr);
-	}
+		void printIL(UniquePtr& expr) {
+			this->::IL::Visitor::visitChild(expr);
+		}
 
-	virtual void visit(IL::Binary& expr) {
-		prettyPrint("{} {} = {} {} {}", 
-			variableToString(expr.dest), typeToString(expr.type), 
-			valueToString(expr.lhs), tokenTypeToStr(expr.operand), valueToString(expr.rhs)
-		);
-	}
-	virtual void visit(IL::Unary& expr) {
-		prettyPrint("{} {} = {} {}",
-			variableToString(expr.dest), typeToString(expr.type),
-			tokenTypeToStr(expr.operand), valueToString(expr.src));
-	}
-	//Primary expressions
-	virtual void visit(IL::Function& func) {
-		std::string paramString;
-		for (auto& param : func.params) {
-			paramString.append(fmt::format("{} {},", variableToString(param.variable), typeToString(param.type)));
+		virtual void visit(Binary& expr) override {
+			prettyPrint("{} {} = {} {} {}",
+				variableToString(expr.dest.variable), ilTypeToString(expr.dest.type),
+				valueToString(expr.lhs), tokenTypeToStr(expr.operation), valueToString(expr.rhs)
+			);
 		}
-		if (!paramString.empty()) paramString.pop_back();
-		prettyPrint("{}fn {}({}) -> {} {{", func.isExported ? "export " : "",
-			func.name, paramString, typeToString(func.returnType)
-		);
-		indentCallback([&]() {
-			printNode(func.entryNode);
-		});
-		prettyPrint("}}");
-	}
-	virtual void visit(IL::Test& expr) {
-		prettyPrint("test {} [true => {}, false => {}]", variableToString(expr.var), expr.trueLabel.name, expr.falseLabel.name);
-	}
-	virtual void visit(IL::Phi& expr) {
-		std::string branches;
-		for (auto& node : expr.nodes) {
-			branches += util::strBuilder(std::to_string(node.label.name), ':', valueToString(node.value));
+		virtual void visit(Unary& expr) override {
+			prettyPrint("{} {} = {} {}",
+				variableToString(expr.dest.variable), ilTypeToString(expr.dest.type),
+				tokenTypeToStr(expr.operation), valueToString(expr.src));
 		}
-		if (!branches.empty()) branches.pop_back();
-		prettyPrint("{} {} = phi [{}]", variableToString(expr.dest), typeToString(expr.type), branches);
-	}
-	virtual void visit(IL::Return& expr) {
-		prettyPrint("return {} {}", typeToString(expr.type), valueToString(expr.value));
-	}
-	virtual void visit(IL::Definition& expr) {
-		prettyPrint("{} {} = {}", variableToString(expr.dest), typeToString(expr.type), valueToString(expr.src));
-	}
-	virtual void visit(IL::Instruction& expr) {
-		prettyPrint("[Instruction]");
-	}
-	virtual void visit(IL::Jump& jump) {
-		prettyPrint("jump label {}", jump.target.name);
-	}
-	virtual void visit(IL::FunctionCall& call) {
-		prettyPrint("call {}", call.name);
-	}
-	virtual void visit(IL::Label& label) {
-		prettyPrint("Label {}", label.name);
-	}
-private:
-	void printNode(std::shared_ptr<IL::Node> const& targetNode) {
-		depthFirstVisit(targetNode, [&](IL::NodePtr const& node) {
-			prettyPrint("{}", node->startLabel.name);
+		//Primary expressions
+		virtual void visit(Function& func) override {
+			std::string paramString;
+			for (auto& param : func.params) {
+				paramString.append(fmt::format("{} {},", variableToString(param.variable), ilTypeToString(param.type)));
+			}
+			if (!paramString.empty()) paramString.pop_back();
+			prettyPrint("{}fn {}({}) -> {} {{", func.isExported ? "export " : "",
+				func.name, paramString, ilTypeToString(func.returnType)
+			);
 			indentCallback([&]() {
-				for (auto& il : node->stmts) {
-					printIL(il);
+				for (auto& stmt : func.body) {
+					printIL(stmt);
 				}
 			});
-		});
-	}
-	auto variableToString(IL::Variable const& var) -> std::string {
-		return util::strBuilder(var.is_global ? "@" : "#", std::to_string(var.id));
-	}
-	auto typeToString(IL::Type const& type) -> std::string {
-		std::string_view name;
-		using enum IL::DataType;
-		switch (type.data_type) {
-		case i1: name = "i1"; break;
-		case i8: name = "i8"; break;
-		case i16: name = "i16"; break;
-		case str: name = "str"; break;
+			prettyPrint("}}");
 		}
-		return util::strBuilder(name,
-			type.elements > 1 ? util::strBuilder('[', std::to_string(type.elements),']') : "", 
-			type.pointer ? "*" : "");
-	}
-	auto valueToString(IL::Value const& value) -> std::string {
-		return std::visit([this](auto const& arg) {
-			using U = std::remove_cvref_t<decltype(arg)>;
-			if constexpr (std::is_same_v<U, IL::PC>) {
-				return std::string("$");
-			}
-			else if constexpr (std::is_same_v<U, int>) {
-				return std::to_string(arg);
-			}
-			else if constexpr (std::is_same_v<U, std::string>) {
-				return arg;
-			}
-			else if constexpr (std::is_same_v<U, IL::Variable>) {
-				return variableToString(arg);
-			}
-		}, value);
-	}
-};
+		virtual void visit(Test& expr) override {
+			prettyPrint("test {} [true => {}]", variableToString(expr.var), expr.trueLabel.name);
+		}
+		virtual void visit(Phi& expr) override {
+			std::string branches;
+			prettyPrint("{} {} = phi [{}]", variableToString(expr.dest.variable), ilTypeToString(expr.dest.type), branches);
+		}
+		virtual void visit(Return& expr) override {
+			prettyPrint("return {}", valueToString(expr.value));
+		}
+		virtual void visit(Assignment& expr) override {
+			prettyPrint("{} {} = {}", variableToString(expr.dest.variable), ilTypeToString(expr.dest.type), valueToString(expr.src));
+		}
+		virtual void visit(Instruction& expr) override {
+			prettyPrint("[Instruction]");
+		}
+		virtual void visit(Jump& jump) override {
+			prettyPrint("jump label {}", jump.target.name);
+		}
+		virtual void visit(FunctionCall& call) override {
+			prettyPrint("call {}", call.name);
+		}
+		virtual void visit(Label& label) override {
+			prettyPrint("Label {}", label.name);
+		}
+		virtual void visit(Cast& cast) override {
+			prettyPrint("{} = ({}){}", variableToString(cast.dest), ilTypeToString(cast.cast), valueToString(cast.src));
+		}
+		virtual void visit(Allocate& allocation) override {
+			prettyPrint("{} u8* = alloc({})", variableToString(allocation.dest), std::to_string(allocation.size));
+		}
+		virtual void visit(Deref& deref) override {
+			prettyPrint("{} {} = deref({})", variableToString(deref.dest.variable), ilTypeToString(deref.dest.type), variableToString(deref.ptr));
+		}
+		virtual void visit(MemCopy& copy) override {
+			prettyPrint("memcpy({}, {}, {})", variableToString(copy.dest), variableToString(copy.src), std::to_string(copy.length));
+		}
+	private:
+
+		auto variableToString(Variable const& var) -> std::string {
+			return util::strBuilder(var.is_global ? "@" : "#", std::to_string(var.id));
+		}
+
+		auto valueToString(Value const& value) -> std::string {
+			return std::visit([this](auto const& arg) {
+				using U = std::remove_cvref_t<decltype(arg)>;
+				if constexpr (std::is_same_v<U, PC>) {
+					return std::string("$");
+				}
+				else if constexpr (std::is_same_v<U, int>) {
+					return std::to_string(arg);
+				}
+				else if constexpr (std::is_same_v<U, std::string>) {
+					return arg;
+				}
+				else if constexpr (std::is_same_v<U, Variable>) {
+					return variableToString(arg);
+				}
+				}, value);
+		}
+	};
+}

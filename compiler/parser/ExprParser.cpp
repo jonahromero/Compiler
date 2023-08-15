@@ -5,34 +5,26 @@ using enum Token::Type;
 //expressions
 Expr::UniquePtr ExprParser::expr()
 {
-	auto result = logical();
-	if (matchType(PERIOD)) {
-		return Expr::makeExpr<Expr::MemberAccess>(result->sourcePos, std::move(result), expectIdent());
-	}
-	else if (matchType(LEFT_BRACKET)) {
-		auto innerExpr = expr();
-		expect(RIGHT_BRACKET);
-		return Expr::makeExpr<Expr::Indexing>(result->sourcePos, std::move(result), std::move(innerExpr));
-	}
-	else if (matchType(LEFT_PARENTH)) {
-		auto args = argList();
-		expect(RIGHT_PARENTH);
-		return Expr::makeExpr<Expr::FunctionCall>(result->sourcePos, std::move(result), std::move(args));
-	}
-	else if (matchType(LESS)) {
-		auto args = argList();
-		expect(GREATER);
-		return Expr::makeExpr<Expr::TemplateCall>(result->sourcePos, std::move(result), std::move(args), false);
-	}
-	else {
-		return result;
-	}
+	auto typeMode = context.turnOffTypeMode();
+	auto scopedChange = context.startNewNesting();
+	return nestedExpr();
+}
+
+Expr::UniquePtr ExprParser::typeExpr() {
+	auto typeMode = context.turnOnTypeMode();
+	auto scopedChange = context.startNewNesting();
+	return nestedExpr();
+}
+
+Expr::UniquePtr ExprParser::nestedExpr()
+{
+	return logical();
 }
 
 Expr::UniquePtr ExprParser::logical()
 {
 	auto lhs = bitwise();
-	while (matchType(AND, OR)) {
+	while (matchType(OR) || (!context.isInTypeMode() && matchType(AND))) {
 		Token::Type oper = previousType(); //order of function eval unspecified
 		SourcePosition sourcePos = previousSourcePos();
 		auto rhs = bitwise();
@@ -44,7 +36,8 @@ Expr::UniquePtr ExprParser::logical()
 Expr::UniquePtr ExprParser::bitwise()
 {
 	auto lhs = comparison();
-	while (matchType(BIT_AND, BIT_XOR, BIT_OR)) {
+	while (matchType(BIT_XOR, BIT_OR)
+		|| (!context.isInTypeMode() && matchType(BIT_AND))) {
 		Token::Type oper = previousType();
 		SourcePosition sourcePos = previousSourcePos();
 		auto rhs = comparison();
@@ -56,7 +49,13 @@ Expr::UniquePtr ExprParser::bitwise()
 Expr::UniquePtr ExprParser::comparison()
 {
 	auto lhs = equality();
-	while (matchType(LESS, LESS_EQUAL, GREATER, GREATER_EQUAL)) {
+
+	while (matchType(LESS_EQUAL, GREATER_EQUAL) 
+		|| (context.isNested() && matchType(GREATER))
+		|| (!context.isInTemplateMode() && matchType(GREATER))
+		|| (!shouldMatchTemplate() && matchType(LESS))
+	) 
+	{
 		Token::Type oper = previousType();
 		SourcePosition sourcePos = previousSourcePos();
 		auto rhs = equality();
@@ -80,8 +79,21 @@ Expr::UniquePtr ExprParser::equality()
 Expr::UniquePtr ExprParser::bitshift()
 {
 	auto lhs = term();
-	while (matchType(SHIFT_LEFT, SHIFT_RIGHT)) {
-		Token::Type oper = previousType();
+	auto matchShiftRight = [&]() { 
+		if (peekNext().type == GREATER_CONCATENATOR) { 
+			expect(GREATER);
+			matchType(GREATER_CONCATENATOR);
+			expect(GREATER);
+			return true;
+		} 
+		return false;
+	};
+	while (matchType(SHIFT_LEFT)
+		|| (context.isNested() && matchShiftRight())
+		|| (!context.isInTemplateMode() && matchShiftRight())
+		) 
+	{
+		Token::Type oper = previousType() == GREATER ? SHIFT_RIGHT : SHIFT_LEFT;
 		SourcePosition sourcePos = previousSourcePos();
 		auto rhs = term();
 		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
@@ -103,37 +115,120 @@ Expr::UniquePtr ExprParser::term()
 
 Expr::UniquePtr ExprParser::factor()
 {
-	auto lhs = unary();
+	auto lhs = cast();
 	while (matchType(STAR, SLASH, MODULO)) {
 		Token::Type oper = previousType();
 		SourcePosition sourcePos = previousSourcePos();
-		auto rhs = unary();
+		auto rhs = cast();
 		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
 
+Expr::UniquePtr ExprParser::cast()
+{
+	auto expr = unary();
+	while (matchType(AS)) {
+		SourcePosition sourcePos = previousSourcePos();
+		auto type = unary();
+		expr = Expr::makeExpr<Expr::Cast>(sourcePos, std::move(expr), std::move(type));
+	}
+	return expr;
+}
+
 Expr::UniquePtr ExprParser::unary()
 {
 	using enum Token::Type;
-	if (matchType(MINUS, BANG, BIT_NOT, TYPE_DEREF, MUT)) {
+	if (matchType(MINUS, BANG, BIT_NOT, TYPE_DEREF, MUT, BIT_AND, AND)) {
 		auto type = previousType();
 		SourcePosition sourcePos = previousSourcePos();
-		return Expr::makeExpr<Expr::Unary>(sourcePos, type, unary());
+		auto rhs = unary();
+		if (type == AND) 
+		{
+			type = BIT_AND;
+			rhs = Expr::makeExpr<Expr::Unary>(sourcePos, type, std::move(rhs));
+			sourcePos.pos++;
+		}
+		return Expr::makeExpr<Expr::Unary>(sourcePos, type, std::move(rhs));
 	}
 	else {
-		return primary();
+		return scripts();
 	}
+}
+
+Expr::UniquePtr ExprParser::scripts() 
+{
+	auto lhs = primary();
+	while (matchType(PERIOD, LEFT_BRACKET, LEFT_PARENTH, LESS, QUESTION_MARK, BIT_AND, AND))
+	{
+		switch (previousType()) 
+		{
+		case PERIOD:
+			do {
+				lhs = Expr::makeExpr<Expr::MemberAccess>(previousSourcePos(), std::move(lhs), expectIdent());
+			} while (matchType(PERIOD));
+			break;
+		case LEFT_BRACKET: {
+			auto scopedChange = context.turnOffTemplateMode();
+			auto innerExpr = nestedExpr();
+			expect(RIGHT_BRACKET);
+			lhs = Expr::makeExpr<Expr::Indexing>(previousSourcePos(), std::move(lhs), std::move(innerExpr));
+			break;
+		}
+		case LEFT_PARENTH: {
+			auto scopedChange = context.turnOffTemplateMode();
+			std::vector<Expr::UniquePtr> args = argList(RIGHT_PARENTH);
+			lhs = Expr::makeExpr<Expr::FunctionCall>(previousSourcePos(), std::move(lhs), std::move(args));
+			break;
+		}
+		case LESS: {
+			auto scopedChange = context.turnOnTemplateMode();
+			Stmt::ArgList args = argList(GREATER);
+			matchType(GREATER_CONCATENATOR);
+			lhs = Expr::makeExpr<Expr::TemplateCall>(previousSourcePos(), std::move(lhs), std::move(args));
+			break;
+		}
+		case ARROW: {
+			auto returnType = scripts();
+
+		}
+		case QUESTION_MARK: {
+			lhs = Expr::makeExpr<Expr::Questionable>(previousSourcePos(), std::move(lhs));
+			break;
+		}
+		case BIT_AND: {
+			lhs = Expr::makeExpr<Expr::Reference>(previousSourcePos(), std::move(lhs));
+			break;
+		}
+		case AND: {
+			lhs = Expr::makeExpr<Expr::Reference>(previousSourcePos(), std::move(lhs));
+			lhs = Expr::makeExpr<Expr::Reference>(previousSourcePos(), std::move(lhs));
+			break;
+		}
+		default:
+			COMPILER_NOT_REACHABLE;
+		}
+	}
+	return lhs;
 }
 
 Expr::UniquePtr ExprParser::primary()
 {
 	using enum Token::Type;
 	if (matchType(LEFT_PARENTH)) {
+		auto scopedChange = context.increaseNesting();
 		SourcePosition sourcePos = previousSourcePos();
-		auto parenth = Expr::makeExpr<Expr::Parenthesis>(sourcePos, expr());
-		expect(RIGHT_PARENTH);
-		return parenth;
+		auto args = argList(RIGHT_PARENTH);
+		if (matchType(ARROW)) {
+			auto returnType = scripts();
+			return Expr::makeExpr<Expr::FunctionType>(sourcePos, std::move(args), std::move(returnType));
+		}
+		else {
+			if (args.size() != 1) {
+				throw ParseError(sourcePos, "Parenthesis does not support multiple expressions to be listed.");
+			}
+			return Expr::makeExpr<Expr::Parenthesis>(sourcePos, std::move(args[0]));
+		}
 	}
 	else if (matchType(PESO)) {
 		return Expr::makeExpr<Expr::CurrentPC>(previousSourcePos());
@@ -151,9 +246,57 @@ Expr::UniquePtr ExprParser::primary()
 	else if (matchType(NUMBER, STRING)) {
 		return Expr::makeExpr<Expr::Literal>(previousSourcePos(), peekPrevious().literal);
 	}
+	else if (matchType(SIZEOF, DEREF)) {
+		auto pos = previousSourcePos();
+		auto function = previousType();
+		expect(LEFT_PARENTH);
+		auto args = argList(RIGHT_PARENTH);
+		return Expr::makeExpr<Expr::KeyworkFunctionCall>(pos, function, std::move(args));
+	}
+	else if (matchType(LEFT_BRACE)) {
+		auto scopedChange = context.turnOffTemplateMode();
+		auto pos = previousSourcePos();
+		auto throwMismatchedStruct = [&]() { throw ParseError(pos, "Structure Literal must either be "); };
+		auto canMatchName = [&]() { return peek().type == IDENT && peekNext().type == COLON; };
+		bool isNamed = canMatchName();
+		std::vector<Expr::UniquePtr> initializers;
+		std::vector<std::string_view> names;
+		do {
+			if (!isNamed && canMatchName()) {
+				throwMismatchedStruct();
+			}
+			if (isNamed) {
+				if (!canMatchName()) {
+					throwMismatchedStruct();
+				}
+				names.push_back(expectIdent());
+				matchType(COLON);
+			}
+			initializers.push_back(nestedExpr());
+		} while (matchType(COMMA));
+		expect(RIGHT_BRACE);
+		return Expr::makeExpr<Expr::StructLiteral>(pos, std::move(initializers), std::move(names));
+	}
+	else if (matchType(LEFT_BRACKET))
+	{
+		auto scopedChange = context.turnOffTemplateMode();
+		auto pos = previousSourcePos();
+		std::vector<Expr::UniquePtr> elements;
+		do {
+			elements.push_back(nestedExpr());
+		} while (matchType(COMMA));
+		expect(RIGHT_BRACKET);
+		return Expr::makeExpr<Expr::ListLiteral>(pos, std::move(elements));
+	}
 	else {
 		throw UnexpectedToken(peek());
 	}
+}
+
+bool ExprParser::shouldMatchTemplate() const
+{
+	auto& prev = peekPrevious();
+	return prev.type == IDENT && context.isTemplate(prev.lexeme);
 }
 
 void ExprParser::expect(Token::Type expected)
@@ -169,12 +312,16 @@ auto ExprParser::expectIdent() -> std::string_view
 	return peekPrevious().lexeme;
 }
 
-auto ExprParser::argList() -> Stmt::ArgList
+auto ExprParser::argList(Token::Type terminator) -> Stmt::ArgList
 {
 	Stmt::ArgList retval;
+	if (matchType(terminator)) {
+		return retval;
+	}
 	do {
 		retval.push_back(expr());
 	} while (matchType(COMMA));
+	expect(terminator);
 	return retval;
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include "FunctionUtil.h"
 
 namespace util {
 	namespace detail {
@@ -61,6 +62,28 @@ namespace util {
 	auto create_vector(Args&&...args)->std::vector<T> {
 		std::vector<T> retval; retval.reserve(sizeof...(args));
 		(retval.push_back(std::forward<Args>(args)), ...);
+		return retval;
+	}
+
+	template<typename T, typename Callable, typename Ret = std::invoke_result_t<Callable, T const&>>
+	std::vector<Ret> transform_vector(std::vector<T> const& vec, Callable callable)
+	{
+		std::vector<Ret> retval;
+		retval.reserve(vec.size());
+		for (auto& elem : vec) {
+			retval.emplace_back(callable(elem));
+		}
+		return retval;
+	}
+
+	template<typename T, typename U, typename Callable, typename Ret = std::invoke_result_t<Callable, T const&, U const&>>
+	auto transform_vector(std::vector<T> const& first, std::vector<U> const& second, Callable callable) {
+		std::vector<Ret> retval;
+		assert(first.size() == second.size());
+		retval.reserve(first.size());
+		for (size_t i = 0; i < first.size(); i++) {
+			retval.push_back(callable(first[i], second[i]));
+		}
 		return retval;
 	}
 }

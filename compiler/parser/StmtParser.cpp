@@ -11,6 +11,7 @@ Stmt::UniquePtr StmtParser::stmt()
 	case LET: return globalDecl(isExporting);
 	case FN: return fn(isExporting);
 	case BIN: return bin(isExporting);
+	default:;
 	}
 	//special condition, because let is not required if exporting
 	if (isExporting) {
@@ -25,7 +26,6 @@ Stmt::UniquePtr StmtParser::stmt()
 
 auto StmtParser::binBody() -> std::vector<Stmt::VarDecl>
 {
-
 	return parseGenericBlock([&]() { 
 		auto current = peek();
 		auto tempDecl = decl();
@@ -66,6 +66,9 @@ auto StmtParser::fn(bool shouldExport) -> Stmt::UniquePtr
 			func.templateInfo = templateDecl();
 		}
 		func.name = expectIdent();
+		if(func.isTemplate()) {
+			context.addTemplate(func.name);
+		}
 		expect(LEFT_PARENTH);
 		func.params = funcParams();
 		expect(ARROW);
@@ -73,7 +76,6 @@ auto StmtParser::fn(bool shouldExport) -> Stmt::UniquePtr
 		expectConsecutive(COLON);
 	});
 	return Stmt::makeStmt<Stmt::Function>(sourcePos, std::move(func));
-
 }
 
 auto StmtParser::bin(bool shouldExport) -> Stmt::UniquePtr
@@ -87,6 +89,9 @@ auto StmtParser::bin(bool shouldExport) -> Stmt::UniquePtr
 		}
 		expect(IDENT);
 		bin.name = peekPrevious().lexeme;
+		if (bin.isTemplate()) {
+			context.addTemplate(bin.name);
+		}
 		expect(COLON);
 	}, false);
 	bin.body = binBody();
@@ -107,7 +112,8 @@ auto StmtParser::templateDecl() -> Stmt::TemplateDecl
 {
 	Stmt::TemplateDecl retval;
 	if (matchType(GREATER))
-		throw TokenErrorMessage(peek(), "Empty Template Declerations not allowed");;
+		throw TokenErrorMessage(peek(), "Empty Template Declerations not allowed");
+	auto scopedChange = context.turnOnTemplateMode();
 	do {
 		retval.params.push_back(decl());
 	} while (matchType(COMMA));

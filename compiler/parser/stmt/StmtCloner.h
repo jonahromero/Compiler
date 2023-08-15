@@ -1,103 +1,117 @@
 #pragma once
 #include "Stmt.h"
 #include "ExprCloner.h"
+#include "VectorUtil.h"
 
 namespace Stmt
 {
     class Cloner
-        : public Stmt::CloneVisitor, public Expr::Cloner {
+        : public Stmt::CloneVisitor<Cloner>
+    {
+        using Stmt::CloneVisitor<Cloner>::cloneList;
     public:
+        using Stmt::CloneVisitor<Cloner>::clone;
 
-        virtual void visit(Stmt::Label& stmt) {
-            returnCloned(labale, label.label);
+        virtual void visit(Function const& func) override {
+            returnCloned(func,
+                clone(func.templateInfo), func.name,
+                this->cloneList(func.params), clone(func.retType),
+                this->cloneList(func.body), func.isExported
+            );
+        }
+        virtual void visit(Bin const& bin) override {
+            returnCloned(bin,
+                clone(bin.templateInfo), bin.name,
+                this->cloneList(bin.body), bin.isExported
+            );
+        }
+    private:
+
+        virtual void visit(Label const& stmt) override {
+            returnCloned(stmt, stmt.label);
         }
 
-        virtual void visit(Stmt::Instruction& stmt) {
+        virtual void visit(Instruction const& stmt) override {
             returnCloned(stmt, stmt.opcode, cloneList(stmt.argList));
         }
 
-        virtual void visit(Stmt::ExprStmt& expr) override {
+        virtual void visit(ExprStmt const& expr) override {
             returnCloned(expr, clone(expr.expr));
         }
-        virtual void visit(Stmt::Function& func) override {
-            returnCloned(func, 
-                clone(func.templateInfo), func.name 
-                cloneList(func.params), clone(func.retType), 
-                cloneList(func.body), func.isExported
-            );
-        }
-        virtual void visit(Stmt::Bin& bin) override {
-            returnCloned(bin,
-                clone(bin.templateInfo), bin.name, 
-                cloneList(bin.name), bin.isExported
-            );
-        }
-        virtual void visit(Stmt::Module& mod) override {
+        virtual void visit(Module const& mod) override {
             returnCloned(mod, mod.title);
         }
-        virtual void visit(Stmt::Import& imp) override {
+        virtual void visit(Import const& imp) override {
             returnCloned(imp, imp.file);
         }
-        virtual void visit(Stmt::VarDef& varDef) override {
+        virtual void visit(VarDef const& varDef) override {
             returnCloned(varDef, 
                 clone(varDef.decl), varDef.isExported,
                 clone(varDef.initializer)
             );
         }
-        virtual void visit(Stmt::CountLoop& loop) override {
+        virtual void visit(CountLoop const& loop) override {
             returnCloned(loop,
                 loop.counter, clone(loop.initializer), 
                 cloneList(loop.body)                
             );
         }
-        virtual void visit(Stmt::Assign& assign) override {
+        virtual void visit(Assign const& assign) override {
             returnCloned(assign, clone(assign.lhs), clone(assign.rhs));
         }
-        virtual void visit(Stmt::If& ifStmt) override {
+        virtual void visit(If const& ifStmt) override {
             returnCloned(ifStmt,
                 clone(ifStmt.ifBranch), cloneList(ifStmt.elseIfBranch),
-                ifStmt.elseBranch 
+                cloneList(ifStmt.elseBranch)
             );
         }
-        virtual void visit(Stmt::Return& stmt) override {
+        virtual void visit(Return const& stmt) override {
             returnCloned(stmt, clone(stmt.expr));
         }
-        virtual void visit(Stmt::NullStmt& nullStmt) override {
+        virtual void visit(NullStmt const& nullStmt) override {
             returnCloned(nullStmt);
         }
 
+
         template<typename T>
-        std::optional<T> clone(std::optional<T>& ref) {
+        std::optional<T> clone(std::optional<T> const& ref) {
             if(ref.has_value()) return {clone(ref.value())};
             else return std::nullopt;
         }
 
-        Conditional clone(Conditional& ref) {
+        Conditional clone(Conditional const& ref) {
             return {clone(ref.expr), cloneList(ref.body)};
         }
 
-        TypeDecl clone(TypeDecl& ref) {
+        TypeDecl clone(TypeDecl const& ref) {
             return ref.name;
         }
-        VarDecl clone(VarDecl& ref) {
-            return {ref.name, clone(ref.type)}
+        VarDecl clone(VarDecl const& ref) {
+            return { ref.name, clone(ref.type) };
         }
-        GenericDecl clone(GenericDecl& ref) {
+        GenericDecl clone(GenericDecl const& ref) {
             return std::visit([&](auto&& decl) {
-                return clone(decl);
+                return GenericDecl(clone(decl));
             }, ref);
         }
-        TemplateDecl clone(TemplateDecl& ref) {   
-            std::vector<GenericDecl> cloned; copiedParams.reserve(ref.param.size());
-            for (auto& param : ref.params) copiedParams.push_back(copyGenericDecl(param));
-            return TemplateDecl{ std::move(copiedParams) };
+        TemplateDecl clone(TemplateDecl const& ref) {   
+            return TemplateDecl{ cloneList(ref.params) };
+        }
+        Expr::UniquePtr clone(Expr::UniquePtr const& expr) {
+            return Expr::Cloner{}.clone(expr);
+        }
+        
+        template<typename T>
+        std::vector<T> cloneList(std::vector<T> const& list) {
+            return util::transform_vector(list, [&](T const& elem) {
+                return this->clone(elem);
+            });
         }
 
-    private:
         template<typename T, typename...Args>
 		void returnCloned(T const& stmt, Args&&...new_args) {
 			returnValue(
-				Stmt::makeStmt<T>(
+				makeStmt<T>(
                     stmt.sourcePos,
 					std::forward<Args>(new_args)...
 				)
