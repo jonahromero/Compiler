@@ -6,68 +6,78 @@
 #include <unordered_map>
 #include <queue>
 
-template<typename T>
-auto setDifference(std::set<T> const& first, std::set<T> const& other) {
-	std::set<T> intersection;
-	std::set_difference(first.begin(), first.end(), other.begin(), other.end(), std::inserter(intersection, intersection.begin()));
-	return intersection;
+using DominatorSet = std::vector<std::set<size_t>>;
+
+DominatorSet initDominatorSets(size_t states, size_t entryState) {
+    std::set<size_t> fullSet;
+    for (size_t i = 0; i < states; i++) {
+        fullSet.insert(i);
+    }
+    DominatorSet dominatorSets(graph.nodeCount());
+    for(size_t i = 0; i < graph.nodeCount(); i++){
+        if(i != entryState) dominatorSets[i] = fullSet;
+    }
+    dominatorSets[entryState] = std::set<size_t>{{entryState}};
+    return dominatorSets;
 }
 
-auto getAllNodes(IL::NodePtr const& entryNode)->std::set<IL::NodePtr> {
-	std::set<IL::NodePtr> nodes;
-	depthFirstVisit(entryNode, [&](IL::NodePtr const& node) {
-		nodes.insert(node);
-	});
-	return nodes;
-}
-
-auto getNodesAvoidingNode(IL::NodePtr const& entryNode, IL::NodePtr const& toAvoid) -> std::set<IL::NodePtr> {
-	std::set<IL::NodePtr> visitedNodes;
-	std::queue<IL::NodePtr> nodesToVisit;
-	nodesToVisit.push(entryNode);
-	while(!nodesToVisit.empty()) {
-		auto& topNode = nodesToVisit.front();
-		if (topNode.get() != toAvoid.get() && !visitedNodes.contains(topNode)) {
-			visitedNodes.insert(topNode);
-			for (auto& child : topNode->children) {
-				nodesToVisit.push(child);
-			}
-		}
-		nodesToVisit.pop();
-	}
-	return visitedNodes;
-}
-
-auto calculateDominanceFrontiers(IL::NodePtr const& entryNode) -> std::unordered_map<IL::NodePtr, NodeSet>
+std::set<size_t> getIntersectionOfPred(size_t node, DominatorSet const& dominators) 
 {
-	// for each node x, look at all nodes z, and see if x doesnt dominate z, but dominates one of its predecessors
-	// place phi nodes at the dominance frontiers
-	auto dominances = calculateDominances(entryNode);
-	std::unordered_map<IL::NodePtr, NodeSet> dominanceFrontiers;
-	depthFirstVisit(entryNode, [&](IL::NodePtr const& nodeX) {
-		depthFirstVisit(nodeX, [&](IL::NodePtr const& nodeZ) {
-			//dominates a predeccessor
-			if(dominances[nodeX].contains(nodeZ)) {
-				// doesnt dominate child
-				for (auto& child : nodeZ->children) {
-					if (!dominances[nodeX].contains(child)) {
-						dominanceFrontiers[nodeX].insert(child);
-					}
-				}
-			}
-		});
-	});
-	return dominanceFrontiers;
+    std::set<size_t> intersection;
+    bool firstIter = true;
+    for(auto graphPred : graph.pred(node)) {
+        if(firstIter) { intersection = dominators[graphPred]; continue; }
+        std::set<size_t> temp;
+        std::set<size_t>& predSet = dominators[graphPred];
+        std::set_intersection(predSet.begin(), predSet.end(), intersection.begin(), intersection.end(), std::inserter(temp, temp.begin()));
+        intersection = temp;
+    }
+    return intersection;
 }
 
-auto calculateDominances(IL::NodePtr const& entryNode) -> std::unordered_map<IL::NodePtr, NodeSet>
+DominatorSet calculateDominatorSets(CFG const& graph) 
 {
-	auto allNodes = getAllNodes(entryNode);
-	std::unordered_map<IL::NodePtr, NodeSet> dominances;
-	depthFirstVisit(entryNode, [&](IL::NodePtr& node) {
-		auto nodes_avoided = getNodesAvoidingNode(entryNode, node);
-		auto intersection = setDifference(allNodes, nodes_avoided);
-		dominances.emplace(node, std::move(intersection));
-	});
-	return dominances;
+    auto dominatorSets = initDominatorSets(graph.getEntryNode(), graph.getEntryNode());
+    std::stack<size_t> worklist; 
+    for(auto out : graph.out(graph.getEntryNode())) {
+        worklist.push(out);
+    }
+    while(!worklist.empty()) 
+    {
+        auto node = worklist.top(); worklist.pop();
+        auto& currentDominatorSet = dominatorSets[node];
+        auto intersection = getIntersectionOfPred(node, dominatorSets);
+        bool newNodesAdded = false;
+        for(auto& n : intersection) {
+            if(!currentDominatorSet.insert(n).second) 
+                newNodesAdded = true;
+        }
+        if(newNodesAdded) {
+            for(auto succ : graph.out(node)) {
+                worklist.push(succ);
+            }
+        }
+    }
+    return dominatorSets;
 }
+
+PureGraph calculateIdom(CFG const& graph)
+{
+    auto dominatorSets = calculateDominatorSets(graph);
+    std::sort(dominatorSets.begin(), dominatorSets.end(), [](auto& lhs, auto& rhs) {
+        return lhs.
+    });
+}
+
+/*
+// algorithms
+PureGraph createDominator(CFG const& graph) {
+    auto idom = PureGraph::trivialGraph(graph.nodeCount());
+    auto dominatorSets = calculateDominatorSets(graph);
+    std::set<size_t> nodesAdded;
+
+    for(size_t i = 0; i < graph.nodeCount(); i++) {
+        idom
+    }
+}
+*/

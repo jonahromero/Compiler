@@ -1,4 +1,4 @@
-#include "Compiler.h"
+#include "ILGenerator.h"
 #include "Parser.h"
 #include "Lexer.h"
 #include <variant>
@@ -6,6 +6,7 @@
 #include "spdlog/spdlog.h"
 #include "GraphDominance.h"
 #include "ExprInterpreter.h"
+#include "GraphDominance.h"
 
 
 ILGenerator::ILGenerator()
@@ -36,6 +37,9 @@ void ILGenerator::visit(Stmt::Bin& bin)
 void ILGenerator::visit(Stmt::Function& func)
 {
 	enterFunction();
+	CfgGenerator{}.generator(func.body);
+
+
 	typeSystem.addFunc(func);
 	if (!func.isTemplate()) {
 		std::vector<IL::Function::Param> params;

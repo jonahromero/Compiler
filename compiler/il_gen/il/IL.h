@@ -37,6 +37,7 @@ namespace IL {
 		}
 		Type(DataType data_type, size_t elements = 1) 
 			: data_type(data_type), elements(elements), pointer(false) {}
+			
 		Type& asPointer() {
 			assert(("Cannot create pointer of pointer", !pointer));
 			pointer = true;

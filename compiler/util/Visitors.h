@@ -32,7 +32,8 @@ namespace visit {
         };
 
         template<typename VisitableBaseImpl, typename ReturnType, typename...Args>
-        class VisitorReturner : public Visitor<VisitableBaseImpl, Args...> {
+        class VisitorReturner : public Visitor<VisitableBaseImpl, Args...> 
+        {
         public:
             template<typename, typename> friend class Visitable;
 
@@ -61,15 +62,16 @@ namespace visit {
             }
         };
 
-        template<typename VistorDerived, typename Derived, typename ReturnType typename...Args>
-        class CloneVisitor : public VisitorReturner<Dervied, ReturnType, Args...>; 
+        template<typename VisitorDerived, typename Derived, typename ReturnType, typename...Args>
+        class CloneVisitor : public VisitorReturner<Derived, ReturnType, Args...>
         {
         public:
             ReturnType clone(std::unique_ptr<Derived>& other) {
-                return this->VisitorReturner<Dervied, ReturnType, Args...>::visitPtr(other);
+                return this->VisitorReturner<Derived, ReturnType, Args...>::visitPtr(other);
             } 
         protected:
-            auto cloneList(std::vector<std::unique_ptr<Derived>> const& list) {
+            auto cloneList(std::vector<std::unique_ptr<Derived>> const& list) 
+            {
                 std::vector<std::unique_ptr<Derived>> cloned; cloned.reserve(list.size());
                 for (auto& val : list) cloned.emplace_back(VisitorDerived{}.clone(val));
                 return cloned;

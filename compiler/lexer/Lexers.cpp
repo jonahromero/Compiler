@@ -46,9 +46,9 @@ void Lexer::emptyIndentStackUntil(size_t value)
 	}
 }
 
-auto Lexer::calcSourcePos() -> Token::SourcePosition
+auto Lexer::calcSourcePos() -> SourcePosition
 {
-	return Token::SourcePosition{line, currentPos()};
+	return SourcePosition{line, currentPos()};
 }
 
 void Lexer::addNewline()
@@ -99,7 +99,7 @@ void Lexer::tryToToken()
 	catch (UnterminatedCharacterLiteral const& err) {
 		spdlog::error("[Line: {}] Unterminated Character Literal.", err.line);
 	}
-	catch (IntegralTypeTooSmall const& err) {
+	catch (util::IntegralTypeTooSmall const&) {
 		spdlog::error("[Line: {}] Integral type is too large to fit in a 16 bit number.", line);
 	}
 }
@@ -130,21 +130,21 @@ void Lexer::token() {
 	case '&': match('&') ? addToken(AND) : addToken(BIT_AND); return;
 	case '|': match('|') ? addToken(OR) : addToken(BIT_OR); return;
 	case '.': match('.') ? (match('.') ? addToken(ELLIPSES) : shortEllipses()) : addToken(PERIOD); return;
-	case '$': isHexidecimal(peek()) ? hexidecimal() : addToken(PESO); return;
-	case '%': isBinary(peek()) ? binary() : addToken(MODULO); return;
+	case '$': util::isHexidecimal(peek()) ? hexidecimal() : addToken(PESO); return;
+	case '%': util::isBinary(peek()) ? binary() : addToken(MODULO); return;
 	}
-	if (isDigit(letter)) decimal();
-	else if (isCharQuote(letter)) character();
-	else if (isStringQuote(letter)) string();
-	else if (isIdentifierStart(letter)) identifier();
-	else if (isWhitespace(letter)) whitespace();
-	else if (isCommentStart(letter)) comment();
+	if (util::isDigit(letter)) decimal();
+	else if (util::isCharQuote(letter)) character();
+	else if (util::isStringQuote(letter)) string();
+	else if (util::isIdentifierStart(letter)) identifier();
+	else if (util::isWhitespace(letter)) whitespace();
+	else if (util::isCommentStart(letter)) comment();
 	else unexpectedCharacter(letter);
 }
 
 void Lexer::identifier()
 {
-	consumeWhile(isIdentifier);
+	consumeWhile(util::isIdentifier);
 	auto ident = currentStringView();
 	if (isOpcode(ident)) addToken(OPCODE);
 	/*Very Special Case: af' is the only identifier that can end with "\'" */
@@ -161,7 +161,7 @@ void Lexer::character()
 	if (!atEnd()) {
 		char letter = advance();
 		if (letter == '\\' && !atEnd()) {
-			letter = toEscapedChar(advance());
+			letter = util::toEscapedChar(advance());
 		}
 		if (!match('\'')) {
 			unterminatedCharacterLiteral();
@@ -186,7 +186,7 @@ void Lexer::string()
 			return true;
 		}
 		else if (escaped) {
-			literal.push_back(toEscapedChar(l));
+			literal.push_back(util::toEscapedChar(l));
 			escaped = false;
 			return true;
 		}
@@ -203,22 +203,22 @@ void Lexer::string()
 
 void Lexer::decimal()
 {
-	consumeWhile(isDigit);
-	auto literal = decToIntegral<uint16_t>(currentStringView());
+	consumeWhile(util::isDigit);
+	auto literal = util::decToIntegral<uint16_t>(currentStringView());
 	addToken(NUMBER, literal);
 }
 
 void Lexer::hexidecimal()
 {
-	consumeWhile(isHexidecimal);
-	auto literal = hexToIntegral<uint16_t>(currentStringView().substr(1));
+	consumeWhile(util::isHexidecimal);
+	auto literal = util::hexToIntegral<uint16_t>(currentStringView().substr(1));
 	addToken(NUMBER, literal);
 }
 
 void Lexer::binary()
 {
-	consumeWhile(isBinary);
-	auto literal = binaryToIntegral<uint16_t>(currentStringView().substr(1));
+	consumeWhile(util::isBinary);
+	auto literal = util::binaryToIntegral<uint16_t>(currentStringView().substr(1));
 	addToken(NUMBER, literal);
 }
 
@@ -251,6 +251,6 @@ void Lexer::whitespace() {
 }
 
 void Lexer::comment() {
-	consumeWhile(isNotNewline);
+	consumeWhile(util::isNotNewline);
 	readjustStart();
 }

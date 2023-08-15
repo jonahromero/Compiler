@@ -17,7 +17,7 @@ Stmt::UniquePtr BlockParser::funcStmt()
 
 auto BlockParser::opcode()->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	auto opcode = peekPrevious().lexeme;
 	auto args = argList();
 	expect(NEWLINE);
@@ -26,7 +26,7 @@ auto BlockParser::opcode()->Stmt::UniquePtr
 
 auto BlockParser::label()->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	auto ident = peekPrevious().lexeme;
 	expect(COLON); matchType(NEWLINE);
 	return Stmt::makeStmt<Stmt::Label>(sourcePos, ident);
@@ -34,7 +34,7 @@ auto BlockParser::label()->Stmt::UniquePtr
 
 auto BlockParser::ifStmt()->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	Stmt::If ifStmt;
 	ifStmt.ifBranch.body = safelyParseStmtBlockHeader([&]() {
 		ifStmt.ifBranch.expr = expr();
@@ -61,7 +61,7 @@ auto BlockParser::ifStmt()->Stmt::UniquePtr
 
 auto BlockParser::loopStmt()->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	Stmt::CountLoop loop;
 	loop.body = safelyParseStmtBlockHeader([&]() {
 		expect(WITH);
@@ -75,7 +75,7 @@ auto BlockParser::loopStmt()->Stmt::UniquePtr
 
 auto BlockParser::returnStmt()->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	Stmt::Return returnStmt;
 	returnStmt.expr = expr();
 	expect(NEWLINE);
@@ -89,7 +89,7 @@ auto BlockParser::miscStmt() -> Stmt::UniquePtr
 		return label();
 	}
 	else {
-		Token::SourcePosition sourcePos = previousSourcePos();
+		SourcePosition sourcePos = previousSourcePos();
 		auto lhs = expr();
 		if (matchType(EQUAL)) {
 			auto rhs = expr();
@@ -105,7 +105,7 @@ auto BlockParser::miscStmt() -> Stmt::UniquePtr
 
 auto BlockParser::letStmt(bool shouldExport)->Stmt::UniquePtr
 {
-	Token::SourcePosition sourcePos = previousSourcePos();
+	SourcePosition sourcePos = previousSourcePos();
 	Stmt::VarDef var(decl(), shouldExport);
 	if (matchType(EQUAL)) {
 		var.initializer = expr();

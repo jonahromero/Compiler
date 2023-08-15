@@ -2,8 +2,6 @@
 //
 
 #include <iostream>
-#include "Compiler.h"
-#include "ILPrinter.h"
 
 /* Things to do:
 * Make DeepCopy a visitor class. dont know why we embedded it in the classes
@@ -29,12 +27,13 @@ fn equal_msg(var : u8) -> u8: ;line 5
 
 int main()
 {
+    /*
     Compiler compiler;
     auto il_program = compiler.compile(test);
     for (auto& il : il_program) {
         ILPrinter{}.printIL(il);
         //std::cout << std::hex << +byte << std::endl;
-    }
+    }*/
     return 0;
 }
 

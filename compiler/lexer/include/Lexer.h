@@ -57,7 +57,7 @@ private:
 	void addWhitespaceToken(Token::Type type, Token::Literal literal = Token::Literal());
 	void checkIndentation();
 	void emptyIndentStackUntil(size_t value);
-	auto calcSourcePos()->Token::SourcePosition;
+	auto calcSourcePos()-> SourcePosition;
 	void addNewline();
 
 	void tryToToken();

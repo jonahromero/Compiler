@@ -29,10 +29,10 @@ public:
 
 	class NotConstEval : public CompilerError {
 	public:
-		NotConstEval(Token::SourcePosition const& pos, Token::Type const& operation)
+		NotConstEval(SourcePosition const& pos, Token::Type const& operation)
 			: CompilerError(pos), operation(operation) {}
 
-		NotConstEval(Token::SourcePosition const& pos, std::string what)
+		NotConstEval(SourcePosition const& pos, std::string what)
 			: CompilerError(pos), what(what) {}
 		std::string msgToString() {
 			return fmt::format("Expression cannot be evaluated at compile-time: {}", 
@@ -46,7 +46,7 @@ public:
 
 	class InvalidOperation : public CompilerError {
 	public:
-		InvalidOperation(Token::SourcePosition const& pos, Token::Type const& operation, ExprResult const& result)
+		InvalidOperation(SourcePosition const& pos, Token::Type const& operation, ExprResult const& result)
 			: CompilerError(pos), operation(operation) {
 			std::visit([&](auto&& arg) {
 				using U = std::remove_cvref_t<decltype(arg)>;

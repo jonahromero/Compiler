@@ -28,7 +28,7 @@ private:
 
 protected:
 	Token::Type previousType() const;
-	Token::SourcePosition previousSourcePos() const;
+	SourcePosition previousSourcePos() const;
 
 	void expect(Token::Type expected);
 	auto expectIdent()->std::string_view;

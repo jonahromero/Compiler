@@ -1,9 +1,6 @@
 #pragma once
-#include "IL.h"
 #include <unordered_map>
 #include <set>
+#include "CFG.h"
 
-using NodeSet = std::set<IL::NodePtr>;
-
-auto calculateDominanceFrontiers(IL::NodePtr const& entryNode)->std::unordered_map<IL::NodePtr, NodeSet>;
-auto calculateDominances(IL::NodePtr const& entryNode)->std::unordered_map<IL::NodePtr, NodeSet>;
+PureGraph calculateIdom(CFG const& graph);

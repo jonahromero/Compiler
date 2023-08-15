@@ -23,8 +23,8 @@ namespace util
 	namespace detail
 	{	
 		std::string_view removeLeadingZeroes(std::string_view view) {
-			auto i = std::find_if(view.begin(), view.end(), [](auto& c) { return c != '0'});
-			return view.substr(i);
+			auto i = std::find_if(view.begin(), view.end(), [](auto& c) { return c != '0'; });
+			return view.substr(std::distance(view.begin(), i));
 		}
 		inline bool decimalStrGreaterThanOrEqual(std::string_view first, std::string_view second) {
 			first = removeLeadingZeroes(first); second = removeLeadingZeroes(second);
@@ -35,7 +35,7 @@ namespace util
 
 	template<std::integral T>
 	T decToIntegral(std::string_view decimal) {
-		if (decimalStrGreaterThanOrEqual(decimal, std::to_string(std::numeric_limits<T>::max()))) {
+		if (detail::decimalStrGreaterThanOrEqual(decimal, std::to_string(std::numeric_limits<T>::max()))) {
 			throw IntegralTypeTooSmall();
 		}
 		T retval = 0, exponent = 1;

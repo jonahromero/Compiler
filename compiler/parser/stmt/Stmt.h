@@ -6,8 +6,8 @@
 #include "Expr.h"
 #include "Visitors.h"
 
-namespace Stmt {
-
+namespace Stmt 
+{
 	class Stmt
 		: public visit::VisitableBase<Stmt,	struct Instruction, struct Label, struct NullStmt,
 		struct Function, struct Bin, struct Module, struct Module, struct Import, struct VarDef, 
@@ -18,7 +18,7 @@ namespace Stmt {
 
 
 	template<typename Derived, typename ReturnType>
-	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {}
+	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {};
 	template<typename T>
 	class VisitorReturner : public Stmt::VisitorReturnerType<T> {};
 	class Visitor : public Stmt::VisitorType {};
@@ -29,7 +29,7 @@ namespace Stmt {
 	using Program = std::vector<::Stmt::UniquePtr>;
 
 	template<typename T, typename...Args>
-	UniquePtr makeStmt(Token::SourcePosition sourcePos, Args&&...args) {
+	UniquePtr makeStmt(SourcePosition sourcePos, Args&&...args) {
 		auto stmt = std::make_unique<T>(T{ std::forward<Args>(args)... });
 		stmt->sourcePos = sourcePos;
 		return stmt;
@@ -98,6 +98,7 @@ namespace Stmt {
 		GenericDecl decl;
 		std::optional<Expr::UniquePtr> initializer;
 	};
+
 	struct CountLoop : Stmt::Visitable<CountLoop> {
 		CountLoop(std::string_view counter, Expr::UniquePtr initializer, StmtBody body) 
 			: counter(counter), initializer(std::move(initializer)), body(std::move(body)) {}
@@ -107,6 +108,7 @@ namespace Stmt {
 		Expr::UniquePtr initializer;
 		StmtBody body;
 	};
+
 	struct Assign : Stmt::Visitable<Assign> {
 		Assign(Expr::UniquePtr lhs, Expr::UniquePtr rhs) 
 			: lhs(std::move(lhs)), rhs(std::move(rhs)) {}
@@ -115,13 +117,13 @@ namespace Stmt {
 		Expr::UniquePtr lhs, rhs;
 	};
 	struct If : Stmt::Visitable<If> {
-		If(Conditional ifBranch, std::vector<Conditional> elseIfBranch, std::optional<StmtBody> elseBranch)
+		If(Conditional ifBranch, std::vector<Conditional> elseIfBranch, StmtBody elseBranch)
 			: ifBranch(std::move(ifBranch)), elseIfBranch(std::move(elseIfBranch)), elseBranch(std::move(elseBranch)) {}
 		If() = default;
 
 		Conditional ifBranch;
 		std::vector<Conditional> elseIfBranch;
-		std::optional<StmtBody> elseBranch;
+		StmtBody elseBranch;
 	};
 
 	struct Return : Stmt::Visitable<Return> {

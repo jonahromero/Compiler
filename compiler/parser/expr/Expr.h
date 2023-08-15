@@ -19,7 +19,7 @@ namespace Expr
 	};
 
 	template<typename Derived, typename ReturnType>
-	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {}
+	class CloneVisitor : public Expr::CloneVisitor<Derived, ReturnType> {};
 	template<typename T>
 	class VisitorReturner : public Expr::VisitorReturnerType<T> {};
 	class Visitor : public Expr::VisitorType {};
@@ -27,7 +27,7 @@ namespace Expr
 	using UniquePtr = std::unique_ptr<Expr>;
 
 	template<typename T, typename...Args>
-	UniquePtr makeExpr(Token::SourcePosition sourcePos, Args&&...args) {
+	UniquePtr makeExpr(SourcePosition sourcePos, Args&&...args) {
 		auto expr = std::make_unique<T>(T{ std::forward<Args>(args)... });
 		expr->sourcePos = sourcePos;
 		return expr;
