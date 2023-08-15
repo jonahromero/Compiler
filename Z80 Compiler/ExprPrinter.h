@@ -12,7 +12,7 @@
 
 
 class ExprPrinter
-	: public Expr::ExprVisitor {
+	: public Expr::Visitor {
 public:
 	ExprPrinter(int initialSpaces) 
 		: currentSpaces(initialSpaces) {}

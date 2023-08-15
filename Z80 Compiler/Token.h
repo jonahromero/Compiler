@@ -2,31 +2,35 @@
 #include <string>
 #include <array>
 #include <variant>
+#include "IntTypes.h"
 
 class Token {
 public:
-	enum class Type : uint8_t {
+	enum class Type : u8 {
+		COUNT, WITH, FROM, IF, ELSE, RETURN, EXPORT, MODULE, IMPORT, FN, BIN, LET, TYPE,
 		IDENT, NUMBER, STRING, OPCODE, REGISTER, FLAG,
-		COMMA, COLON, PESO, PERIOD, BACKSLASH, APOSTROPHE,
-		PLUS, MINUS, SLASH, STAR, MODULO,
+		COMMA, COLON, PESO, PERIOD, BACKSLASH,
+		PLUS, MINUS, SLASH, STAR, MODULO, TYPE_DEREF, ELLIPSES,
 		EQUAL, EQUAL_EQUAL, NOT_EQUAL,
 		LESS, LESS_EQUAL, GREATER, GREATER_EQUAL,
 		AND, OR, BANG, SHIFT_LEFT, SHIFT_RIGHT,
 		BIT_OR, BIT_AND, BIT_XOR, BIT_NOT,
 		LEFT_PARENTH, RIGHT_PARENTH,
-		NEWLINE,
+		MUT, TRUE, FALSE, 
+		/*White space tokens*/
+		NEWLINE, INDENT, DEDENT, 
 		EOF_
 	};
-	using Literal = std::variant<std::monostate, std::string, uint16_t>;
+	using Literal = std::variant<std::monostate, std::string, u16>;
 	struct SourcePosition { size_t line, pos; };
 
-	Token(Type type, std::string_view lexeme, Literal literal, SourcePosition sourcePosition)
-		: type(type), lexeme(lexeme), literal(literal), sourcePosition(sourcePosition) {}
+	Token(Type type, std::string_view lexeme, Literal literal, SourcePosition sourcePos)
+		: type(type), lexeme(lexeme), literal(literal), sourcePos(sourcePos) {}
 
 	Type type;
 	std::string_view lexeme;
 	Literal literal;
-	SourcePosition sourcePosition;
+	SourcePosition sourcePos;
 };
 
 inline auto literalToStr(Token::Literal const& literal) -> std::string {
@@ -41,20 +45,22 @@ inline auto literalToStr(Token::Literal const& literal) -> std::string {
 		else {
 			return std::to_string(value);
 		}
-		}, literal);
+	}, literal);
 }
 
 inline auto tokenTypeToStr(Token::Type tokenType) -> std::string_view {
 	static constexpr std::array<std::string_view, static_cast<size_t>(Token::Type::EOF_) + 1> converter = {
+		"Count", "With", "From", "If", "Else", "Return", "Export", "Module", "Import", "Function", "Bin", "Let", "Type",
 		"Identifier", "Number", "String", "Opcode", "Register", "Flag",
-		"Comma", "Colon", "Peso", "Period", "BackSlash", "Apostrophe",
-		"Plus", "Minus", "Slash", "Star", "Modulo",
+		"Comma", "Colon", "Peso", "Period", "BackSlash", 
+		"Plus", "Minus", "Slash", "Star", "Modulo", "Type Operator", "Ellipses",
 		"Equal", "Equal Equal", "Not Equal",
 		"Less than", "Less than or Equal", "Greater than", "Greater than or Equal",
 		"And", "Or", "Not", "Shift Left", "Shift Right",
 		"Bitwise Or", "Bitwise And", "Bitwise Xor", "Bitwise Not",
 		"Left Parenthesis", "Right Parenthesis",
-		"Newline",
+		"Mutable", "True", "False",
+		"Newline", "Indent", "Dedent",
 		"End of File"
 	};
 	return converter[static_cast<size_t>(tokenType)];

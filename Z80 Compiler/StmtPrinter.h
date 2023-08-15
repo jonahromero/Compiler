@@ -3,7 +3,7 @@
 #include "ExprPrinter.h"
 
 class StmtPrinter
-	: public Stmt::StmtVisitor, public ExprPrinter {
+	: public Stmt::Visitor, public ExprPrinter {
 
 	virtual void visit(Stmt::Label& stmt) {
 		prettyPrint("Label", stmt.label);
@@ -12,6 +12,7 @@ class StmtPrinter
 		prettyPrint("Opcode", stmt.opcode);
 		printArglist(stmt.argList);
 	}
+	virtual void visit(Stmt::NullStmt& stmt) {}
 private:
 	void printArglist(Stmt::ArgList& argList) {
 		indentCallback([&]() {

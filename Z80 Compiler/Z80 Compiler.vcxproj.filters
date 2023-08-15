@@ -17,9 +17,6 @@
     <Filter Include="Util\Visitors">
       <UniqueIdentifier>{3debb9fa-d995-4051-a7ef-1b597653ce52}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Util\Logger">
-      <UniqueIdentifier>{86b5d0a6-932b-495a-9f10-5acbf976d3f2}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Util\STD Util">
       <UniqueIdentifier>{dc033b7a-2cdd-4b74-944c-475096d046a7}</UniqueIdentifier>
     </Filter>
@@ -62,6 +59,15 @@
     <Filter Include="Assembler\Instruction Formats">
       <UniqueIdentifier>{110aaaca-aa71-4c77-9197-613c4f4479a2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Compiler\Language Elements">
+      <UniqueIdentifier>{fd286d83-2760-49f1-883b-ead68f974b91}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Parser\Parsers">
+      <UniqueIdentifier>{2486b574-4e97-4846-880f-7afbffa84776}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Parser\Errors">
+      <UniqueIdentifier>{fa7e6ec7-4a48-4770-9512-72763aa2f350}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Z80 Compiler.cpp">
@@ -69,12 +75,6 @@
     </ClCompile>
     <ClCompile Include="Lexers.cpp">
       <Filter>AST\Lexer</Filter>
-    </ClCompile>
-    <ClCompile Include="Parser.cpp">
-      <Filter>AST\Parser</Filter>
-    </ClCompile>
-    <ClCompile Include="Logger.cpp">
-      <Filter>Util\Logger</Filter>
     </ClCompile>
     <ClCompile Include="Assembler.cpp">
       <Filter>Assembler</Filter>
@@ -91,6 +91,18 @@
     <ClCompile Include="OperandDecoder.cpp">
       <Filter>Assembler\Operands</Filter>
     </ClCompile>
+    <ClCompile Include="Parser.cpp">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClCompile>
+    <ClCompile Include="ExprParser.cpp">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClCompile>
+    <ClCompile Include="StmtParser.cpp">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClCompile>
+    <ClCompile Include="FnParser.cpp">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">
@@ -101,9 +113,6 @@
     </ClInclude>
     <ClInclude Include="Expr.h">
       <Filter>AST\Parser\Expression</Filter>
-    </ClInclude>
-    <ClInclude Include="Parser.h">
-      <Filter>AST\Parser</Filter>
     </ClInclude>
     <ClInclude Include="StreamViewer.h">
       <Filter>Util\Viewers</Filter>
@@ -131,9 +140,6 @@
     </ClInclude>
     <ClInclude Include="StmtPrinter.h">
       <Filter>AST\Parser\Statements</Filter>
-    </ClInclude>
-    <ClInclude Include="Logger.h">
-      <Filter>Util\Logger</Filter>
     </ClInclude>
     <ClInclude Include="Assembler.h">
       <Filter>Assembler</Filter>
@@ -164,6 +170,45 @@
     </ClInclude>
     <ClInclude Include="OperandFormatBits.h">
       <Filter>Assembler\Instruction Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="Enviroment.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Module.h">
+      <Filter>Compiler\Language Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="Function.h">
+      <Filter>Compiler\Language Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="Type.h">
+      <Filter>Compiler\Language Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="Bin.h">
+      <Filter>Compiler\Language Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="Variable.h">
+      <Filter>Compiler\Language Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="IntTypes.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="StmtHelpers.h">
+      <Filter>AST\Parser\Statements</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClInclude>
+    <ClInclude Include="ExprParser.h">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClInclude>
+    <ClInclude Include="StmtParser.h">
+      <Filter>AST\Parser\Parsers</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseError.h">
+      <Filter>AST\Parser\Errors</Filter>
+    </ClInclude>
+    <ClInclude Include="FnParser.h">
+      <Filter>AST\Parser\Parsers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -14,10 +14,12 @@ namespace Asm {
 		uint16_t val;
 	};
 	struct Flag {
+		Flag(std::string_view str) : str(str) {}
 		auto operator<=>(const Flag&) const = default;
 		std::string_view str;
 	};
 	struct Register {
+		Register(std::string_view str) : str(str) {}
 		auto operator<=>(const Register&) const = default;
 		std::string_view str;
 	};
@@ -32,6 +34,7 @@ namespace Asm {
 
 	using Dereferenceable = std::variant<Register, OffsetRegister, Number>;
 	struct Dereference {
+		Dereference(Dereferenceable address) : address(address) {}
 		auto operator<=>(const Dereference&) const = default;
 		Dereferenceable address;
 	};

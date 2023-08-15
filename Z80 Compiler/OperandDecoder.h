@@ -15,18 +15,19 @@ namespace Asm {
 
 		class ExpectedInteger {};
 		class ExpectedDereferenceable {};
+		class InvalidRegisterAddition {};
 
-		OperandDecoder(LabelContext& labelContext, uint16_t pc)
+		OperandDecoder(LabelContext const& labelContext, uint16_t pc)
 			: labelContext(labelContext), pc(pc) {}
 
 		Operand decodeExpr(Expr::UniquePtr& expr) {
 			isInnerExpr = false;
-			return this->visitAndReturn(expr);
+			return visitPtr(expr);
 		}
 		Operand decodeInnerExpr(Expr::UniquePtr& expr) {
 			bool prevExprDepth = isInnerExpr;
 			isInnerExpr = true;
-			Operand retval = visitAndReturn(expr);
+			Operand retval = visitPtr(expr);
 			isInnerExpr = prevExprDepth;
 			return retval;
 		}
@@ -58,6 +59,6 @@ namespace Asm {
 
 		uint16_t pc;
 		bool isInnerExpr;
-		LabelContext& labelContext;
+		LabelContext const& labelContext;
 	};
 }

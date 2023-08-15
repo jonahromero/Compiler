@@ -4,6 +4,18 @@
 #include "Operand.h"
 
 namespace Asm {
-	Bytes assemble(std::string_view opcode, std::vector<Operand> const& operands);
-}
 
+	class Assembler {
+	public:
+		Assembler(LabelContext const& labelContext, size_t pc)
+			: labelContext(labelContext), pc(pc) {}
+		Bytes assemble(Stmt::Instruction& instruct);
+
+	private:
+		class TooManyOperands {};
+		auto createOperands(Stmt::ArgList& argList) -> std::vector<Asm::Operand>;
+
+		LabelContext const& labelContext;
+		size_t pc;
+	};
+}

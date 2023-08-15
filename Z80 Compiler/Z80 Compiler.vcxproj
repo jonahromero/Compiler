@@ -146,37 +146,50 @@
   <ItemGroup>
     <ClCompile Include="Assembler.cpp" />
     <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="ExprParser.cpp" />
+    <ClCompile Include="FnParser.cpp" />
     <ClCompile Include="InstructionFormat.cpp" />
     <ClCompile Include="InstructionFormatTable.cpp" />
     <ClCompile Include="Lexers.cpp" />
-    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="OperandDecoder.cpp" />
     <ClCompile Include="Parser.cpp" />
+    <ClCompile Include="StmtParser.cpp" />
     <ClCompile Include="Z80 Compiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AsciiTable.h" />
     <ClInclude Include="Assembler.h" />
+    <ClInclude Include="Bin.h" />
     <ClInclude Include="CharacterUtil.h" />
     <ClInclude Include="Compiler.h" />
+    <ClInclude Include="Enviroment.h" />
     <ClInclude Include="ExpectationErrors.h" />
     <ClInclude Include="Expr.h" />
+    <ClInclude Include="ExprParser.h" />
     <ClInclude Include="ExprPrinter.h" />
+    <ClInclude Include="FnParser.h" />
+    <ClInclude Include="Function.h" />
     <ClInclude Include="Grammer.h" />
     <ClInclude Include="InstructionFormat.h" />
+    <ClInclude Include="IntTypes.h" />
+    <ClInclude Include="Module.h" />
     <ClInclude Include="Operand.h" />
     <ClInclude Include="OperandFormatBits.h" />
     <ClInclude Include="OperandDecoder.h" />
     <ClInclude Include="Lexer.h" />
-    <ClInclude Include="Logger.h" />
+    <ClInclude Include="ParseError.h" />
     <ClInclude Include="ReservedIdentifiers.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Stmt.h" />
+    <ClInclude Include="StmtHelpers.h" />
+    <ClInclude Include="StmtParser.h" />
     <ClInclude Include="StmtPrinter.h" />
     <ClInclude Include="StreamViewer.h" />
     <ClInclude Include="StringUtil.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="TokenViewer.h" />
+    <ClInclude Include="Type.h" />
+    <ClInclude Include="Variable.h" />
     <ClInclude Include="VariantUtil.h" />
     <ClInclude Include="Visitors.h" />
   </ItemGroup>

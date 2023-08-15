@@ -1,4 +1,5 @@
 #include "InstructionFormat.h"
+#include "spdlog\spdlog.h"
 
 namespace Asm {
 
@@ -154,8 +155,9 @@ namespace Asm {
 		};
 
 		auto opcodeInstructionFormats = opcodeFormats.find(opcode);
-		if (opcodeInstructionFormats == opcodeFormats.end()) 
+		if (opcodeInstructionFormats == opcodeFormats.end()) {
 			throw UnknownOpcode(opcode);
+		}
 		return findValidRule(opcodeInstructionFormats->second, operands);
 	}
 }

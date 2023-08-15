@@ -81,7 +81,7 @@ namespace Asm {
 				returnValue(Number(lhs.val + sign * rhs.val));
 			},
 			[](auto, auto) {
-				throw "Can only add registers and numbers";
+				throw InvalidRegisterAddition();
 			}
 		}, lhs, rhs);
 	}
@@ -126,14 +126,14 @@ namespace Asm {
 	void OperandDecoder::visit(Expr::Literal& expr)
 	{
 		if (!holds_alternative<uint16_t>(expr.literal)) {
-			throw ExpectedDereferenceable();
+			throw ExpectedInteger();
 		}
 		returnValue(std::get<uint16_t>(expr.literal));
 	}
 
 	void OperandDecoder::visit(Expr::Identifier& expr)
 	{
-		returnValue(labelContext[expr.ident]);
+		returnValue(labelContext.at(expr.ident));
 	}
 
 	void OperandDecoder::visit(Expr::Register& reg)
@@ -173,7 +173,7 @@ namespace Asm {
 			},
 			[](auto) {
 				throw ExpectedDereferenceable();
-				return Dereferenceable{}; 
+				return Dereferenceable{0}; 
 			}
 		}, oper);
 	}

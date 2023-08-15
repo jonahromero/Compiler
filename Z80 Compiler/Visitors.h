@@ -34,24 +34,29 @@ namespace visit {
         template<typename VisitableBaseImpl, typename ReturnType, typename...Args>
         class VisitorReturner : public Visitor<VisitableBaseImpl, Args...> {
         public:
+            template<typename, typename> friend class Visitable;
+
             ReturnType visitPtr(std::unique_ptr<VisitableBaseImpl>& visitable) {
+                
                 visitable->accept(*this);
                 return flushRetval();
             }
-        protected:
-            ReturnType&& flushRetval() { return std::move(*getPtr()); }
 
+            virtual ~VisitorReturner() {
+                getPtr()->~ReturnType();
+            }
+        protected:
             void returnValue(ReturnType&& retval) { new(this->retval) ReturnType(std::move(retval)); }
             void returnValue(ReturnType const& retval) { new(this->retval) ReturnType(retval); }
             template<typename U>
             void returnValue(U&& retval) {
                 new(this->retval) ReturnType(std::forward<U>(retval));
             }
-            virtual ~VisitorReturner() {
-                getPtr()->~ReturnType();
-            }
         private:
             alignas(ReturnType) char retval[sizeof(ReturnType)];
+
+            ReturnType&& flushRetval() { return std::move(*getPtr()); }
+
             ReturnType* getPtr() {
                 return static_cast<ReturnType*>(static_cast<void*>(&retval));
             }
@@ -65,8 +70,17 @@ namespace visit {
             }
         };
     }
+    /*Visitor Base :
+        Pretty Cool Class made by urs truly. For a Generic Class that should be Pure virtual
+        and visitable, inerit VisitableBase with CRTP, and all the other classes that will inherit
+        from it (No other easier way). VisitableBase will then have 3 type definitions:
+        
+        VisitorReturnType: Inherit this in your visitor that returns a value. templated return type
+        VisitorType: Inherit this in you visitor that returns nothing.
+        Visitable: Inherit this in the classes that derive from your generic class (using CRTP)
 
-    //Visitor Helpers
+
+    */
     template<typename Derived, typename...Args>
     class VisitableBase {
     public:
@@ -75,9 +89,11 @@ namespace visit {
         using VisitorType = detail::Visitor<Derived, Args...>;
         template<typename VisitableDerived>
         using Visitable = detail::Visitable<Derived, VisitableDerived>;
+        virtual ~VisitableBase() = default;
     private:
-        template<typename, typename...> friend class Visitor;
-        template<typename, typename, typename...> friend class VisitorReturner;
+        template<typename, typename...> friend class detail::Visitor;
+        template<typename, typename, typename...> friend class detail::VisitorReturner;
         virtual void accept(VisitorType& visitor) = 0;
     };
 }
+
