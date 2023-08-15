@@ -65,9 +65,52 @@ struct FunctionType final : TypeWithId<FunctionType>
 	TypeInstance returnType;
 };
 
+
 struct PrimitiveType final : TypeWithId<PrimitiveType> 
 {
-	using TypeWithId<PrimitiveType>::TypeWithId;
+	enum class SubType { bool_, u8, i8, u16, i16 } subtype;
+	PrimitiveType(SubType subtype, std::string name, size_t size)
+		: subtype(subtype), name(std::move(name)), size(size) {}
+
+	bool isUnsigned() const 
+	{
+		switch (subtype) 
+		{
+		case SubType::bool_: return true;
+		case SubType::u8: return false;
+		case SubType::i8: return true;
+		case SubType::u16: return false;
+		case SubType::i16: return true;
+		}
+	}
+	bool isLargestType() const
+	{
+		switch (subtype) 
+		{
+		case SubType::u16: return true;
+		case SubType::i16: return true;
+		default: return false;
+		}
+	}
+	SubType getPromotedSubType() const 
+	{
+		switch (subtype)
+		{
+		case SubType::bool_: return SubType::i8;
+		case SubType::u8: return SubType::i16;
+		case SubType::i8: return SubType::i16;
+		default: COMPILER_NOT_REACHABLE;
+		}
+	}
+};
+
+struct ArrayType final : TypeWithId<ArrayType>
+{
+	ArrayType(std::string name, size_t size, TypeInstance elementType, std::vector<size_t> indexing)
+		: TypeWithId<FunctionType>(std::move(name), size), elementType(std::move(elementType)), indexing(std::move(indexing)) {}
+
+	TypeInstance elementType;
+	std::vector<size_t> indexing
 };
 
 struct NoneType final : TypeWithId<NoneType>
@@ -78,16 +121,17 @@ struct NoneType final : TypeWithId<NoneType>
 //templates 
 struct TemplateBin final : TypeWithId<TemplateBin> 
 {
-	struct TypeParam {};
-	struct TemplateParam {
+	struct TypeParameter {};
+	struct Parameter 
+	{
 		std::string_view name;
-		std::variant<TypeParam, TypeInstance> type;
+		std::variant<TypeParameter, TypeInstance> type;
 	};
 
 	TemplateBin(std::string name)
 		: TypeWithId<TemplateBin>(std::move(name), 0) {}
 	
-	std::vector<TemplateParam> templateParams;
+	std::vector<Parameter> templateParams;
 	std::vector<Stmt::VarDecl> body;
 };
 

@@ -3,6 +3,7 @@
 #include "StringUtil.h"
 #include "VectorUtil.h"
 #include "TemplateReplacer.h"
+#include "VariantUtil.h"
 #include <algorithm>
 #include <functional>
 #include <cassert>
@@ -161,7 +162,32 @@ void ExprInterpreter::visit(Expr::TemplateCall& expr)
 
 void ExprInterpreter::visit(Expr::Indexing& expr)
 {
-	throw NotConstEvaluable(expr.sourcePos, "Indexing is not a compile-time operation");
+	auto lhs = visitChild(expr.lhs);
+	if (lhs.isTypeInstance())
+	{
+		TypePtr newArray;
+		TypeInstance type = lhs.getTypeInstance();
+		auto innerExpr = visitChild(expr.innerExpr);
+		if (!innerExpr.isInt()) {
+			throw SemanticError(expr.innerExpr->sourcePos, "Array type expression must have a compile-time number of elements.");
+		}
+		if (auto arrayType = type.type->getExactType<ArrayType>()) 
+		{
+			if (type.isMut || type.isOpt || type.isRef) {
+				throw SemanticError(expr.lhs->sourcePos, "Cannot create an array of reference/mutable/maybe arrays.");
+			}
+			newArray = env.types.modifyAndAddArray(arrayType, innerExpr.getInt());
+		}
+		else
+		{
+			newArray = env.types.addArray(type, innerExpr.getInt());
+		}
+		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(newArray)});
+	}
+	else
+	{
+		throw NotConstEvaluable(expr.sourcePos, "Cannot perform index operation of left hand side at compile-time.");
+	}
 }
 
 void ExprInterpreter::visit(Expr::MemberAccess& expr)
@@ -234,12 +260,12 @@ void ExprInterpreter::visit(Expr::StructLiteral& expr)
 std::string_view ExprInterpreter::compileTemplate(SourcePosition pos, TemplateBin const* type, std::vector<ComputedExpr> args)
 {
 	std::string name = createTemplateName(type->name, args);
-	if (env.types.isType(name)) {
+	if (env.types.isType(name)) 
+	{
 		return env.types.getType(name).name;
 	}
 	assertCorrectTemplateArgs(pos, type->templateParams, args);
-	env.types.addBin(name, newBinBody(type->body, type->templateParams, args));
-	return env.types.getType(name).name;
+	return env.types.addBin(name, newBinBody(type->body, type->templateParams, args))->name;
 }
 
 std::string ExprInterpreter::createTemplateName(std::string_view templateID, std::vector<ComputedExpr> const& args)
@@ -270,32 +296,32 @@ void ExprInterpreter::assertCorrectTemplateArgs
 	}
 	for (size_t i = 0; i < params.size(); i++)
 	{
-		std::visit([&](auto&& paramType) {
-			using U = std::remove_cvref_t<decltype(paramType)>;
-			if constexpr (std::is_same_v<U, TypeInstance>)
-			{
-				if (!args[i].isInt()) {
-					throw SemanticError(args[i].sourcePos,
-						fmt::format("Unable to assign a {} to the {} template argument expecting a {}",
-							args[i].typeToString(), util::toStringWithOrdinalSuffix(i), paramType.type->name)
-					);
-				}
+		std::visit(util::OverloadVariant
+		{
+		[&](TypeInstance const& type) 
+		{
+			if (!args[i].isInt()) {
+				throw SemanticError(args[i].sourcePos,
+					fmt::format("Unable to assign a {} to the {} template argument expecting a {}",
+						args[i].typeToString(), util::toStringWithOrdinalSuffix(i), paramType.type->name)
+				);
 			}
-			else if constexpr (std::is_same_v<U, TemplateBin::TypeParam>) {
-				if (!args[i].isTypeInstance()) {
-					throw SemanticError(args[i].sourcePos,
-						fmt::format("Unable to convert a {} to the {} template argument expecting a type",
-							args[i].typeToString(), util::toStringWithOrdinalSuffix(i))
-					);
-				}
+		},
+		[&](TemplateBin::TypeParameter const&) {
+			if (!args[i].isTypeInstance()) {
+				throw SemanticError(args[i].sourcePos,
+					fmt::format("Unable to convert a {} to the {} template argument expecting a type",
+						args[i].typeToString(), util::toStringWithOrdinalSuffix(i))
+				);
 			}
-		}, params[i].type);
+		}
+		}}, params[i].type);
 	}
 }
 
 std::vector<Stmt::VarDecl> ExprInterpreter::newBinBody(
 	std::vector<Stmt::VarDecl> const& oldBody, 
-	std::vector<TemplateBin::TemplateParam> const& params, 
+	std::vector<TemplateBin::Parameter> const& params, 
 	std::vector<ComputedExpr> const& args
 ) 
 {

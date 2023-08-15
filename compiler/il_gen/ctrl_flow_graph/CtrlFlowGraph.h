@@ -92,3 +92,6 @@ using ILBlock = GenericBlock<IL::ILBody, IL::Variable>;
 
 using CtrlFlowGraph = GenericCtrlFlowGraph<Block>;
 using ILCtrlFlowGraph = GenericCtrlFlowGraph<ILBlock>;
+
+std::unordered_map<size_t, std::vector<size_t>> dominanceFrontier(CtrlFlowGraph const& graph);
+IL::Program flattenILCtrlFlowGraph(ILCtrlFlowGraph graph);

@@ -44,6 +44,11 @@ namespace IL
 		Type type;
 	};
 
+	enum class ReferenceType 
+	{
+		VALUE, POINTER, DOUBLE_POINTER
+	};
+
 	class IL
 		: public visit::VisitableBase<IL,
 		struct Function, struct Binary, struct Unary, struct Phi, struct Return, struct Assignment,

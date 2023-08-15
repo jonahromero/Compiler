@@ -7,7 +7,8 @@
 
 
 class CtrlFlowGraphGenerator :
-	public Stmt::Visitor {
+	public Stmt::Visitor 
+{
 public:
 	CtrlFlowGraphGenerator(Stmt::StmtBody& body) : body(body) {}
 

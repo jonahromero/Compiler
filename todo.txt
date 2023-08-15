@@ -1,0 +1,9 @@
+
+add warnings for:
+	-passing in a bin to a function with some of its members uninitialized,
+	 and that function uses those members
+
+refactoring:
+	-potentially split ComputedExpr, TemplateReplacer, and ExprInterpreter, 
+	 producing two functions: interpret, and instantiateType
+	 (problem is they need the enviroment*, circular)

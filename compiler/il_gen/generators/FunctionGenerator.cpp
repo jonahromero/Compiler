@@ -2,6 +2,7 @@
 #include "SemanticError.h"
 #include "CFGGenerator.h"
 #include "VectorUtil.h"
+#include "VariantUtil.h"
 #include "ExprGenerator.h"
 #include "CtrlFlowGraphFlattener.h"
 
@@ -105,28 +106,33 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 {
 	IL::Program output;
 
-	std::visit([&](auto& decl) {
-		using U = std::remove_cvref_t<decltype(decl)>;
-		if constexpr (std::is_same_v<U, Stmt::VarDecl>) {
-			IL::Variable ilVar = env.createVariable(decl.name, env.instantiateType(decl.type));
-			IL::Type ilType = env.getILAliasType(ilVar);
-			if (ilType == IL::Type::u8_ptr) {
-				output.push_back(IL::makeIL<IL::Allocate>(ilVar, env.getVariableType(decl.name).type->size));
-			}
-			if (varDef.initializer.has_value()) {
-				auto exprResult = ExprGenerator::typedContext(env, ilType).generateWithCast(varDef.initializer.value(), ilType);
-				util::vector_append(output, std::move(exprResult.instructions));
-				output.push_back(IL::makeIL<IL::Assignment>(
-					ilVar, ilType, exprResult.output
-				));
-			}
+	std::visit(util::OverloadVariant
+	{
+	[&](Stmt::VarDecl const& decl) 
+	{
+		TypeInstance type = env.instantiateType(decl.type);
+		IL::Variable ilVar = env.createVariable(decl.name, type);
+		IL::Type ilType = env.getILAliasType(ilVar);
+		if (ilType == IL::Type::u8_ptr) {
+			output.push_back(IL::makeIL<IL::Allocate>(ilVar, env.getVariableType(decl.name).type->size));
 		}
-		else if (std::is_same_v<U, Stmt::TypeDecl>) {
-			if (!varDef.initializer.has_value()) {
-				throw SemanticError(varDef.sourcePos, "Type Alias must have an initializer");
-			}
-			env.addTypeAlias(decl.name, env.instantiateType(varDef.initializer.value()));
+		if (varDef.initializer.has_value()) 
+		{
+			auto exprResult = ExprGenerator::typedContext(env, type.type)
+											.generateWithCast(varDef.initializer.value(), ilType);
+			util::vector_append(output, std::move(exprResult.instructions));
+			output.push_back(IL::makeIL<IL::Assignment>(
+				ilVar, ilType, exprResult.output
+			));
 		}
+	},
+	[&](Stmt::TypeDecl const&)
+	{
+		if (!varDef.initializer.has_value()) {
+			throw SemanticError(varDef.sourcePos, "Type Alias must have an initializer");
+		}
+		env.addTypeAlias(decl.name, env.instantiateType(varDef.initializer.value()));
+	}
 	}, varDef.decl);
 
 	returnValue(std::move(output));

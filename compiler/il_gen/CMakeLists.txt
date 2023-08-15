@@ -1,5 +1,6 @@
 
 add_subdirectory(common)
+add_subdirectory(ctrl_flow_graph)
 add_subdirectory(generators)
 add_subdirectory(enviroment)
 add_subdirectory(il)

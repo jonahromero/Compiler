@@ -16,15 +16,17 @@ public:
 	void endScope();
 
 	// variables
-	IL::Variable createVariable(std::string_view name, TypeInstance type);
+	IL::Variable createVariable(std::string_view name, TypeInstance type, IL::ReferenceType refType);
 	IL::Variable createAnonymousVariable(IL::Type ilType);
-	IL::Variable const& getVariableILAlias(std::string_view name) const;
-	IL::Type getILAliasType(IL::Variable variable) const;
+
+	// named variables
 	bool isValidVariable(std::string_view name) const;
-	
-	// Variable types
+	IL::Variable const& getVariableILAlias(std::string_view name) const;
+	IL::ReferenceType getVariableReferenceType(std::string_view name) const;
 	TypeInstance const& getVariableType(std::string_view name) const;
-	TypeInstance instantiateType(Expr::UniquePtr const& expr);
+	
+	// anonymous variables
+	IL::Type getILAliasType(IL::Variable variable) const;
 
 	// Type aliases
 	bool isTypeAlias(std::string_view name) const;
@@ -33,12 +35,14 @@ public:
 
 	// Type system
 	TypeSystem types;
+	TypeInstance instantiateType(Expr::UniquePtr const& expr);
 
 private:
 	struct VarInfo
 	{
 		TypeInstance type;
 		IL::Variable ilAlias;
+		IL::ReferenceType refType;
 	};
 
 	VarInfo const* searchVariables(std::string_view name) const;
@@ -51,6 +55,4 @@ private:
 	ScopeContainer<std::unordered_map<std::string_view, VarInfo>> variables;
 	ScopeContainer<std::unordered_map<std::string_view, TypeInstance>> typeAliases;
 	ScopeContainer<std::unordered_map<IL::Variable, IL::Type>> ilAliasTypes;
-
-	//std::unordered_map<std::string, FunctionInfo, util::StringHash, std::equal_to<>> functions;
 };
