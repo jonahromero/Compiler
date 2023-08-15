@@ -1,0 +1,172 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{c670ed26-1a02-4ce0-b03b-11129359023a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\Viewers">
+      <UniqueIdentifier>{b70abdd7-2462-45f4-86f1-c3b62f0f2578}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\Exceptions">
+      <UniqueIdentifier>{67105cd1-5742-4f0d-9929-b4ba54cd483d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\Visitors">
+      <UniqueIdentifier>{3debb9fa-d995-4051-a7ef-1b597653ce52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\Logger">
+      <UniqueIdentifier>{86b5d0a6-932b-495a-9f10-5acbf976d3f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\STD Util">
+      <UniqueIdentifier>{dc033b7a-2cdd-4b74-944c-475096d046a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\STD Util\Text Manipulation">
+      <UniqueIdentifier>{9b7cfaa3-af69-400c-ae1d-85c768175de5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST">
+      <UniqueIdentifier>{94fdc24c-f1e6-42fe-b1a9-7d737934419b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Lexer">
+      <UniqueIdentifier>{682df384-84a3-4edf-8b17-917468508397}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Parser">
+      <UniqueIdentifier>{6bfa5d3a-d400-4cbf-8c35-bef8ebb76b2e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Parser\Expression">
+      <UniqueIdentifier>{80e3e22c-9446-4fb7-a149-06da2bc289a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Parser\Statements">
+      <UniqueIdentifier>{708b4cfb-3d04-4085-8164-487c19de5617}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembler">
+      <UniqueIdentifier>{e5deab4a-98e4-447a-89ab-224185abef82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Lexer\util">
+      <UniqueIdentifier>{63167d17-8e34-4cba-8b16-5322c5097afa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AST\Specification">
+      <UniqueIdentifier>{aa2aef14-1f68-4c89-bf0a-a826ff5c0080}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler">
+      <UniqueIdentifier>{626f63f5-fefe-4915-9f39-6606a079ad96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\STD Util\variant">
+      <UniqueIdentifier>{e50aa618-b026-48b5-b571-d0acceaeecea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembler\Operands">
+      <UniqueIdentifier>{7d1a839b-33cd-48cc-a787-5314350a5f5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembler\Instruction Formats">
+      <UniqueIdentifier>{110aaaca-aa71-4c77-9197-613c4f4479a2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Z80 Compiler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Lexers.cpp">
+      <Filter>AST\Lexer</Filter>
+    </ClCompile>
+    <ClCompile Include="Parser.cpp">
+      <Filter>AST\Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>Util\Logger</Filter>
+    </ClCompile>
+    <ClCompile Include="Assembler.cpp">
+      <Filter>Assembler</Filter>
+    </ClCompile>
+    <ClCompile Include="Compiler.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionFormat.cpp">
+      <Filter>Assembler\Instruction Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionFormatTable.cpp">
+      <Filter>Assembler\Instruction Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="OperandDecoder.cpp">
+      <Filter>Assembler\Operands</Filter>
+    </ClCompile>
+    <ClCompile Include="Visitors.cpp">
+      <Filter>Util\Visitors</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Lexer.h">
+      <Filter>AST\Lexer</Filter>
+    </ClInclude>
+    <ClInclude Include="Grammer.h">
+      <Filter>AST\Specification</Filter>
+    </ClInclude>
+    <ClInclude Include="Expr.h">
+      <Filter>AST\Parser\Expression</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>AST\Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamViewer.h">
+      <Filter>Util\Viewers</Filter>
+    </ClInclude>
+    <ClInclude Include="TokenViewer.h">
+      <Filter>Util\Viewers</Filter>
+    </ClInclude>
+    <ClInclude Include="ExprPrinter.h">
+      <Filter>AST\Parser\Expression</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpectationErrors.h">
+      <Filter>Util\Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="Stmt.h">
+      <Filter>AST\Parser\Statements</Filter>
+    </ClInclude>
+    <ClInclude Include="StringUtil.h">
+      <Filter>Util\STD Util\Text Manipulation</Filter>
+    </ClInclude>
+    <ClInclude Include="CharacterUtil.h">
+      <Filter>Util\STD Util\Text Manipulation</Filter>
+    </ClInclude>
+    <ClInclude Include="Visitors.h">
+      <Filter>Util\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="StmtPrinter.h">
+      <Filter>AST\Parser\Statements</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.h">
+      <Filter>Util\Logger</Filter>
+    </ClInclude>
+    <ClInclude Include="Assembler.h">
+      <Filter>Assembler</Filter>
+    </ClInclude>
+    <ClInclude Include="AsciiTable.h">
+      <Filter>AST\Lexer\util</Filter>
+    </ClInclude>
+    <ClInclude Include="ReservedIdentifiers.h">
+      <Filter>AST\Lexer\util</Filter>
+    </ClInclude>
+    <ClInclude Include="Token.h">
+      <Filter>AST\Lexer\util</Filter>
+    </ClInclude>
+    <ClInclude Include="Compiler.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="VariantUtil.h">
+      <Filter>Util\STD Util\variant</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionFormat.h">
+      <Filter>Assembler\Instruction Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="Operand.h">
+      <Filter>Assembler\Operands</Filter>
+    </ClInclude>
+    <ClInclude Include="OperandDecoder.h">
+      <Filter>Assembler\Operands</Filter>
+    </ClInclude>
+    <ClInclude Include="OperandFormatBits.h">
+      <Filter>Assembler\Instruction Formats</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
