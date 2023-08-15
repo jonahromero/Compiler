@@ -91,9 +91,6 @@
     <ClCompile Include="OperandDecoder.cpp">
       <Filter>Assembler\Operands</Filter>
     </ClCompile>
-    <ClCompile Include="Visitors.cpp">
-      <Filter>Util\Visitors</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lexer.h">

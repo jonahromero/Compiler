@@ -2,21 +2,18 @@
 #include <memory>
 #include <vector>
 #include "Expr.h"
-#include "VisitorReturner.h"
+#include "Visitors.h"
 
 namespace Stmt {
 
-	class Stmt {
-	public:
-		void accept(class Visitor& visitor) {
-			doAccept(visitor);
-		}
-		template<typename> class VisitorReturner;
-		template<typename T>
-		T accept(VisitorReturner<T>& visitor);
-	private:
-		virtual void doAccept(Visitor& visitor) = 0;
+	class Stmt
+		: public visit::VisitableBase<Stmt,
+		class Instruction, class Label, class NullStmt> {
 	};
+
+	template<typename T>
+	class VisitorReturner : public Stmt::VisitorReturnerType<T> {};
+	class Visitor : public Stmt::VisitorType {};
 
 	using UniquePtr = std::unique_ptr<Stmt>;
 	using ArgList = std::vector<Expr::UniquePtr>;
@@ -26,47 +23,23 @@ namespace Stmt {
 		return std::make_unique<T>(std::forward<Args>(args)...);
 	}
 
-	class Visitor {
-	public:
-		void visitStmt(UniquePtr& stmt) {
-			stmt->accept(*this);
-		}
-		virtual void visit(class Instruction& stmt) = 0;
-		virtual void visit(class Label& stmt) = 0;
-		virtual void visit(class NullStmt& stmt) {}; // Null statements do nothing by default
+	struct Instruction : Stmt::Visitable<Instruction> {
+		std::string_view opcode;
+		ArgList argList;
 	};
-
-	template<typename ReturnType>
-	class VisitorReturner
-		: public ::VisitorReturner<ReturnType>,
-		private Visitor
-	{
-	public:
-		ReturnType visitAndReturn(UniquePtr& stmt) {
-			return stmt->accept(*this);
-		}
-		virtual void visit(class NullStmt& stmt) override {
-			this->returnValue(ReturnType{});
-		}
+	struct Label : Stmt::Visitable<Label> {
+		std::string_view label;
 	};
+	struct NullStmt : Stmt::Visitable<NullStmt> {};
+}
 
-	template<typename T>
-	inline T Stmt::accept(VisitorReturner<T>& visitor)
-	{
-		doAccept(visitor);
-		return visitor.flushRetval();
-	}
-
-	//Icky macros probably again...Sorry
-
+/* Macros if it repetition is bad enough...
+//Icky macros probably again...Sorry
 #define StmtType(Name, Members, Ctor) \
-	class Name : public Stmt { \
+	class Name : public Visitable<Stmt, Name> { \
 	public: \
 		Name Ctor {}\
 		Members; \
-		virtual void doAccept(Visitor& visitor) override { \
-			visitor.visit(*this); \
-		} \
 	} \
 
 	StmtType(Instruction, std::string_view opcode; ArgList argList,
@@ -78,4 +51,4 @@ namespace Stmt {
 		: label(label)
 	);
 	StmtType(NullStmt, , ());
-}
+}*/

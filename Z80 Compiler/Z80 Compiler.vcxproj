@@ -152,7 +152,6 @@
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="OperandDecoder.cpp" />
     <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="Visitors.cpp" />
     <ClCompile Include="Z80 Compiler.cpp" />
   </ItemGroup>
   <ItemGroup>

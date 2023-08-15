@@ -1,21 +1,19 @@
 #pragma once
 #include "Token.h"
 #include <memory>
-#include "VisitorReturner.h"
+#include "Visitors.h"
 
 namespace Expr {
 
-	class Expr {
-	public:
-		void accept(class Visitor& visitor) {
-			doAccept(visitor);
-		}
-		template<typename> class VisitorReturner;
-		template<typename T>
-		T accept(class VisitorReturner<T>& visitor);
-	private:
-		virtual void doAccept(Visitor& visitor) = 0;
-	};
+	class Expr
+		: public visit::VisitableBase<Expr,
+		class Logical, class Bitwise, class Comparison, class Equality, class Bitshift, class Term,
+		class Unary, class Parenthesis, class Identifier, class Register, class Flag, class Literal,
+		class CurrentPC> {};
+
+	template<typename T>
+	class VisitorReturner : public Expr::VisitorReturnerType<T> {};
+	class Visitor : public Expr::VisitorType {};
 
 	using UniquePtr = std::unique_ptr<Expr>;
 
@@ -24,46 +22,43 @@ namespace Expr {
 		return std::make_unique<T>(std::forward<Args>(args)...);
 	}
 
-	class Visitor {
-	public:
-		virtual void visit(class Logical& expr) = 0;
-		virtual void visit(class Bitwise& expr) = 0;
-		virtual void visit(class Comparison& expr) = 0;
-		virtual void visit(class Equality& expr) = 0;
-		virtual void visit(class Bitshift& expr) = 0;
-		virtual void visit(class Term& expr) = 0;
-		virtual void visit(class Factor& expr) = 0;
-		virtual void visit(class Unary& expr) = 0;
-		//Primary expressions
-		virtual void visit(class Parenthesis& expr) = 0;
-		virtual void visit(class Literal& expr) = 0;
-		virtual void visit(class CurrentPC& expr) = 0;
-		virtual void visit(class Identifier& expr) = 0;
-		virtual void visit(class Register& expr) = 0;
-		virtual void visit(class Flag& expr) = 0;
-	};
-
-	template<typename ReturnType>
-	class VisitorReturner
-		: public ::VisitorReturner<ReturnType>,
-		private Visitor
-	{
-	public:
-		ReturnType visitAndReturn(UniquePtr& expr) {
-			return expr->accept<decltype(*this)>(*this);
-		}
-	};
-
-	template<typename T>
-	inline T Expr::accept(VisitorReturner<T>& visitor)
-	{
-		doAccept(visitor);
-		return visitor.flushRetval();
+	namespace detail{
+		struct BinaryExpr { UniquePtr lhs; Token::Type oper; UniquePtr rhs; };
 	}
 
-	//ICKY ICKY MACROS
-	//defines all the expression classes
-	//with proper visit functions and members
+	struct Logical : Expr::Visitable<Logical>, detail::BinaryExpr {};
+	struct Bitwise : Expr::Visitable<Bitwise>, detail::BinaryExpr {};
+	struct Comparison : Expr::Visitable<Comparison>, detail::BinaryExpr {};
+	struct Equality : Expr::Visitable<Equality>, detail::BinaryExpr {};
+	struct Bitshift : Expr::Visitable<Bitshift>, detail::BinaryExpr {};
+	struct Term : Expr::Visitable<Term>, detail::BinaryExpr {};
+
+	struct Unary : Expr::Visitable<Unary> {
+		Token::Type oper; 
+		UniquePtr expr;
+	};
+	struct Parenthesis : Expr::Visitable<Parenthesis> {
+		UniquePtr expr;
+	};
+	struct Identifier : Expr::Visitable<Identifier> {
+		std::string_view ident;
+	};
+	struct Register : Expr::Visitable<Register> {
+		std::string_view reg;
+	};
+	struct Flag : Expr::Visitable<Flag> {
+		std::string_view flag;
+	};
+	struct Literal : Expr::Visitable<Literal> {
+		Token::Literal literal;
+	};
+	struct CurrentPC : Expr::Visitable<CurrentPC> {};
+}
+/*
+//keeping in case necessary?
+//ICKY ICKY MACROS
+//defines all the expression classes
+//with proper visit functions and members
 
 #define PREPROCCESOR_COMMA ,
 
@@ -114,4 +109,4 @@ namespace Expr {
 		()
 	);
 
-}
+}*/
