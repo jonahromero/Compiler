@@ -62,10 +62,19 @@ auto TypeSystem::instantiateType(Enviroment& env, Expr::UniquePtr& expr) -> Type
 
 auto TypeSystem::getType(std::string_view name) -> Type const&
 {
-	// // O: insert return statement here
+	for (auto& type : types) {
+		if (type->name == name) {
+			return type;
+		}
+	}
 }
 
 auto TypeSystem::isType(std::string_view name) -> bool
 {
+	for (auto& type : types) {
+		if (type->name == name) {
+			return true;
+		}
+	}
 	return false;
 }

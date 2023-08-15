@@ -4,6 +4,7 @@
 #include "Token.h"
 #include "Expr.h"
 #include "Visitors.h"
+#include <cassert>
 /*
 * @1 = str "asdasd"
 * @2 = u8 12
@@ -70,6 +71,12 @@ namespace IL {
 	using UniquePtr = std::unique_ptr<IL>;
 	using Program = std::vector<UniquePtr>;
 
+	auto copyProgram(Program const& program) {
+		std::vector<UniquePtr> copiedStmts; copiedStmts.reserve(program.size());
+		for (auto const& stmt : program) copiedStmts.push_back(stmt->clone());
+		return copiedStmts;
+	}
+
 	template<typename T, typename...Args>
 	UniquePtr makeIL(Args&&...args) {
 		return std::make_unique<T>(T{ std::forward<Args>(args)... });
@@ -81,9 +88,11 @@ namespace IL {
 			Variable variable;
 		};
 
+		Function() = default;
 		Function(std::string_view name, std::vector<Param> params, Type returnType, std::vector<UniquePtr> stmts, bool isExported)
 			: name(name), params(std::move(params)), returnType(returnType), stmts(std::move(stmts)), isExported(isExported) {}
-		
+		auto deepCopy() const { return Function(name, visit::deepCopyList(params), returnType, copyProgram(stmts), isExported); }
+
 		std::string_view name;
 		Type returnType;
 		std::vector<Param> params;
@@ -95,6 +104,8 @@ namespace IL {
 	struct Binary : IL::Visitable<Binary> {
 		Binary(Variable dest, Type type, Value lhs, Token::Type operand, Value rhs)
 			: dest(dest), type(type), lhs(lhs), rhs(rhs), operand(operand) {}
+		auto deepCopy() { return Binary(dest, type, lhs, operand, rhs); }
+
 		Type type;
 		Variable dest;
 		Value lhs, rhs;
@@ -103,6 +114,8 @@ namespace IL {
 	struct Unary : IL::Visitable<Unary> {
 		Unary(Variable dest, Type type, Value src, Token::Type operand)
 			: dest(dest), type(type), src(src), operand(operand) {}
+		auto deepCopy() { return Unary(dest, type, src, operand); }
+
 		Type type;
 		Variable dest;
 		Value src;
@@ -112,6 +125,7 @@ namespace IL {
 	struct Definition : IL::Visitable<Definition> {
 		Definition(Variable dest, Type type, Value src)
 			: type(std::move(type)), dest(dest), src(src) {}
+		auto deepCopy() { return Definition(dest, type, src); }
 
 		Type type;
 		Variable dest;
@@ -122,6 +136,8 @@ namespace IL {
 	struct Label : IL::Visitable<Label> {
 		Label(size_t name) 
 			: name(name) {}
+		auto deepCopy() { return Label(name); }
+
 		size_t name;
 	};
 	struct Phi : IL::Visitable<Phi> {
@@ -129,12 +145,20 @@ namespace IL {
 			Value value;
 			Label label;
 		};
+		Phi(Variable dest, Type type, std::vector<Node> nodes)
+			: dest(dest), type(type), nodes(std::move(nodes)) {}
+		auto deepCopy() { return Phi(dest, type, nodes); }
+
 		Type type;
 		Variable dest;
 		std::vector<Node> nodes;
 	};
 	// misc
 	struct Return : IL::Visitable<Return> {
+		Return(Type type, Value value)
+			: type(type), value(value) {}
+		auto deepCopy() { return Return(type, value); }
+
 		Type type;
 		Value value;
 	};
@@ -142,13 +166,22 @@ namespace IL {
 	struct Instruction : IL::Visitable<Instruction> {
 		Instruction(::Stmt::Instruction instr) 
 			: instr(std::move(instr)) {}
+		auto deepCopy() const { return Instruction(instr.deepCopy()); }
+
 		::Stmt::Instruction instr;
 	};
 	struct FunctionCall : IL::Visitable<FunctionCall> {
+		FunctionCall(std::string_view name, std::vector<Value> args)
+			: name(name), args(args) {}
+		auto deepCopy() { return FunctionCall(name, args); }
+
 		std::string_view name;
 		std::vector<Value> args;
 	};
 	struct Jump : IL::Visitable<Jump> {
+		Jump(Label target) : target(target) {}
+		auto deepCopy() { return Jump(target); }
+
 		Label target;
 	};
 }

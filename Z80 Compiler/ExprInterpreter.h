@@ -4,7 +4,6 @@
 #include <string>
 #include "TypeSystem.h"
 #include "CompilerError.h"
-#include "TemplateSystem.h"
 #include "Enviroment.h"
 
 using ExprResult = std::variant<std::string, u16, TypeSystem::TypeInstance>;

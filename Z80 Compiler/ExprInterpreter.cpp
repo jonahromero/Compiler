@@ -76,10 +76,12 @@ void ExprInterpreter::visit(Expr::Parenthesis& expr)
 
 void ExprInterpreter::visit(Expr::Identifier& expr)
 {
-	if (typeSystem.getType(expr.ident)) {
-	
+	if (typeSystem.isType(expr.ident)) {
+		returnValue(TypeSystem::TypeInstance{ typeSystem.getType(expr.ident), false });
 	}
-	//throw NotConstEval(expr.sourcePos, "Variable lookup cannot be performed at compile-time");
+	else {
+		throw NotConstEval(expr.sourcePos, "Variable lookup cannot be performed at compile-time");
+	}
 }
 
 void ExprInterpreter::visit(Expr::FunctionCall& expr)

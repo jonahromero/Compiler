@@ -6,8 +6,6 @@
 #include "Assembler.h"
 #include "Operand.h"
 #include "TypeSystem.h"
-#include "TemplateSystem.h"
-#include "CodeModule.h"
 #include "IL.h"
 #include "Enviroment.h"
 #include "VectorUtil.h"

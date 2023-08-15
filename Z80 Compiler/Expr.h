@@ -31,32 +31,46 @@ namespace Expr {
 		return expr;
 	}
 
+	auto copyExprList(std::vector<UniquePtr> const& other) {
+		std::vector<UniquePtr> exprs; exprs.reserve(other.size());
+		for (auto& expr : other) exprs.push_back(expr->clone());
+		return exprs;
+	}
+
 	struct Binary : Expr::Visitable<Binary> {
 		Binary(UniquePtr lhs, Token::Type oper, UniquePtr rhs)
 			: lhs(std::move(lhs)), oper(oper), rhs(std::move(rhs)) {}
+		auto deepCopy() const { return Binary(lhs->clone(), oper, rhs->clone()); }
 
 		UniquePtr lhs; Token::Type oper; UniquePtr rhs;
 	};
 	struct Unary : Expr::Visitable<Unary> {
 		Unary(Token::Type oper, UniquePtr expr) 
 			: oper(oper), expr(std::move(expr)) {}
+		auto deepCopy() const { return Unary(oper, expr->clone()); }
+
 		Token::Type oper; 
 		UniquePtr expr; 
 	};
 	struct Parenthesis : Expr::Visitable<Parenthesis> {
 		Parenthesis(UniquePtr expr)
 			: expr(std::move(expr)) {}
+		auto deepCopy() const { return Parenthesis(expr->clone()); }
+
 		UniquePtr expr;
 	};
 	struct FunctionCall : Expr::Visitable<FunctionCall> {
 		FunctionCall(UniquePtr lhs, std::vector<UniquePtr> args)
 			: lhs(std::move(lhs)), arguments(std::move(args)) {}
+		auto deepCopy() const { return FunctionCall(lhs->clone(), copyExprList(arguments)); }
+
 		UniquePtr lhs;
 		std::vector<UniquePtr> arguments;
 	};
 	struct TemplateCall : Expr::Visitable<TemplateCall> {
 		TemplateCall(UniquePtr lhs, std::vector<UniquePtr> templateArgs, bool isMut)
 			: lhs(std::move(lhs)), templateArgs(std::move(templateArgs)), isMut(isMut) {}
+		auto deepCopy() const { return TemplateCall(lhs->clone(), copyExprList(templateArgs), isMut); }
 
 		std::vector<UniquePtr> templateArgs;
 		UniquePtr lhs;
@@ -65,17 +79,22 @@ namespace Expr {
 	struct Indexing : Expr::Visitable<Indexing> {
 		Indexing(UniquePtr lhs, UniquePtr innerExpr)
 			: lhs(std::move(lhs)), innerExpr(std::move(innerExpr)) {}
+		auto deepCopy() const { return Indexing(lhs->clone(), innerExpr->clone()); }
+
 		UniquePtr lhs, innerExpr;
 	};
 	struct MemberAccess : Expr::Visitable<MemberAccess> {
 		MemberAccess(UniquePtr lhs, std::string_view member)
 			: lhs(std::move(lhs)), member(member) {}
+		auto deepCopy() const { return MemberAccess(lhs->clone(), member); }
+
 		UniquePtr lhs;
 		std::string_view member;
 	};
 
 	struct Identifier : Expr::Visitable<Identifier> {
 		Identifier(std::string_view ident) : ident(ident) {}
+
 		std::string_view ident;
 	};
 	struct Register : Expr::Visitable<Register> {

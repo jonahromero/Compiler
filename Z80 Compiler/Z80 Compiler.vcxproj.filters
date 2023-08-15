@@ -127,9 +127,6 @@
     <ClCompile Include="TypeSystem.cpp">
       <Filter>Compiler\Typing</Filter>
     </ClCompile>
-    <ClCompile Include="TemplateSystem.cpp">
-      <Filter>Compiler\Typing\Templates</Filter>
-    </ClCompile>
     <ClCompile Include="ExprInterpreter.cpp">
       <Filter>Compiler\Interpreter</Filter>
     </ClCompile>
@@ -247,9 +244,6 @@
       <Filter>Util\STD Util</Filter>
     </ClInclude>
     <ClInclude Include="TemplateReplacer.h">
-      <Filter>Compiler\Typing\Templates</Filter>
-    </ClInclude>
-    <ClInclude Include="TemplateSystem.h">
       <Filter>Compiler\Typing\Templates</Filter>
     </ClInclude>
     <ClInclude Include="ExprInterpreter.h">

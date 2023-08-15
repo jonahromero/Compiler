@@ -68,9 +68,13 @@ namespace visit {
             void accept(typename VisitableBaseImpl::VisitorType& visitor) override {
                 visitor.visit(*static_cast<Derived*>(this));
             }
-
-            auto clone() -> std::unique_ptr<Derived> override {
-                return std::make_unique<Derived>(*static_cast<Dervied*>(this));
+            auto clone() const -> std::unique_ptr<VisitableBaseImpl> override {
+                if constexpr (std::is_copy_constructible_v<Derived>) {
+                    return std::make_unique<Derived>(Derived(*static_cast<const Derived*>(this)));
+                }
+                else {
+                    return std::make_unique<Derived>(static_cast<const Derived*>(this)->deepCopy());
+                }
             }
         };
     }
@@ -98,7 +102,26 @@ namespace visit {
         template<typename, typename...> friend class detail::Visitor;
         template<typename, typename, typename...> friend class detail::VisitorReturner;
         virtual void accept(VisitorType& visitor) = 0;
-        virtual void clone()->std::unique_ptr<VisitorType>;
+    public:
+        virtual auto clone() const ->std::unique_ptr<Derived> = 0;
     };
+
+    template<typename T>
+    void deepCopyList(std::vector<std::unique_ptr<T>> const& list) {
+        std::vector<T> copied; copied.reserve(list.size());
+        for (auto& val : list) copied.push_back(val->clone());
+        return copied;
+    }
+    template<typename T>
+    auto deepCopyList(std::vector<T> const& list) {
+        std::vector<T> copied; copied.reserve(list.size());
+        for (auto const& val : list) {
+            if constexpr (std::is_copy_constructible_v<T>)
+                copied.push_back(val);
+            else
+                copied.push_back(val.deepCopy());
+        }
+        return copied;
+    }
 }
 

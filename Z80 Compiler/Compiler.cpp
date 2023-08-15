@@ -4,8 +4,8 @@
 #include <variant>
 #include "VectorUtil.h"
 #include "spdlog/spdlog.h"
-#include "StmtPrinter.h"
 
+/*
 auto Compiler::compile(std::string_view input) -> IL::Program
 {
 	auto tokens = Lexer(input).generateTokens();
@@ -39,7 +39,6 @@ void Compiler::visit(Stmt::Function& func)
 	inGlobalScope = false;
 	typeSystem.addFunc(func);
 	if (!func.isTemplate()) {
-		typeSystem.addFunc(func);
 		std::vector<IL::Function::Param> params;
 		for (auto& param : func.params) {
 			//params.push_back(IL::Function::Param{ param.type, param.name });
@@ -77,7 +76,7 @@ void Compiler::visit(Stmt::VarDef& varDef)
 				auto def = IL::Definition(
 					createVariable(), IL::Type(type.type->size), getILDefinition(stmts).dest
 				);
-				env.variables.insert(decl.name, EnvInfo{ std::move(type) }.addDefintion(def.dest));
+				//env.variables.insert(decl.name, EnvInfo{ std::move(type) }.addDefintion(def.dest));
 				returnForStmt(util::combine_vectors(std::move(stmts), IL::makeIL<IL::Definition>(def)));
 			}
 		}
@@ -103,7 +102,6 @@ void Compiler::visit(Stmt::Import& imp)
 void Compiler::visit(Stmt::ExprStmt& exprStmt)
 {
 }
-
 void Compiler::visit(Stmt::Return& stmt)
 {
 	auto stmts = visitExpr(stmt.expr);
@@ -133,7 +131,6 @@ void Compiler::visit(Expr::Binary& expr)
 	auto operation = IL::makeIL<IL::Binary>(variable, lhs_def.type, lhs_def.dest, expr.oper, rhs_def.dest);
 	returnForExpr(util::combine_vectors(std::move(lhs), std::move(rhs), std::move(operation)));
 }
-
 void Compiler::visit(Expr::Unary& expr)
 {
 	auto variable = create_variable();
@@ -198,3 +195,4 @@ void Compiler::visit(Expr::Flag& expr)
 {//err
 }
 
+*/

@@ -4,7 +4,6 @@
 #include "Stmt.h"
 #include "Expr.h"
 #include "CodeModule.h"
-#include "TemplateSystem.h"
 
 class TypeSystem
 {
@@ -23,7 +22,7 @@ public:
 	struct BinType : TypeBase {
 		struct Field {
 			Type const& type;
-			std::string_view name
+			std::string_view name;
 		};
 		std::vector<Field> innerTypes;
 		bool mut;
@@ -35,8 +34,18 @@ public:
 	struct PrimitiveType : TypeBase {
 		using TypeBase::TypeBase;
 	};
+
+	//templates 
+	template<typename StmtType>
 	struct Template : TypeBase {
-		std::variant<Stmt::Function, Stmt::Bin> templateType;
+		StmtType type;
+	private:
+	};
+	struct BinTemplate : TypeBase {
+		Stmt::Bin type;
+	};
+	struct FunctionTemplate : TypeBase {
+		Stmt::Function type;
 	};
 
 	struct TypeInstance {

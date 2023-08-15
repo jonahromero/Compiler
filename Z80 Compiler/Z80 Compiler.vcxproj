@@ -163,7 +163,6 @@
     <ClCompile Include="OperandDecoder.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="StmtParser.cpp" />
-    <ClCompile Include="TemplateSystem.cpp" />
     <ClCompile Include="TypeSystem.cpp" />
     <ClCompile Include="Z80 Compiler.cpp" />
   </ItemGroup>
@@ -202,7 +201,6 @@
     <ClInclude Include="StreamViewer.h" />
     <ClInclude Include="StringUtil.h" />
     <ClInclude Include="TemplateReplacer.h" />
-    <ClInclude Include="TemplateSystem.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="TokenViewer.h" />
     <ClInclude Include="TypeSystem.h" />
