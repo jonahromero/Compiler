@@ -7,7 +7,28 @@ using enum Token::Type;
 //expressions
 Expr::UniquePtr ExprParser::expr()
 {
-	return logical();
+	auto result = logical();
+	if (matchType(PERIOD)) {
+		return Expr::makeExpr<Expr::MemberAccess>(result->sourcePos, std::move(result), expectIdent());
+	}
+	else if (matchType(LEFT_BRACKET)) {
+		auto innerExpr = expr();
+		expect(RIGHT_BRACKET);
+		return Expr::makeExpr<Expr::Indexing>(result->sourcePos, std::move(result), std::move(innerExpr));
+	}
+	else if (matchType(LEFT_PARENTH)) {
+		auto args = argList();
+		expect(RIGHT_PARENTH);
+		return Expr::makeExpr<Expr::FunctionCall>(result->sourcePos, std::move(result), std::move(args));
+	}
+	else if (matchType(LESS)) {
+		auto args = argList();
+		expect(GREATER);
+		return Expr::makeExpr<Expr::TemplateCall>(result->sourcePos, std::move(result), std::move(args), false);
+	}
+	else {
+		return result;
+	}
 }
 
 Expr::UniquePtr ExprParser::logical()
@@ -17,7 +38,7 @@ Expr::UniquePtr ExprParser::logical()
 		Token::Type oper = previousType(); //order of function eval unspecified
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = bitwise();
-		lhs = Expr::makeExpr<Expr::Logical>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -29,7 +50,7 @@ Expr::UniquePtr ExprParser::bitwise()
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = comparison();
-		lhs = Expr::makeExpr<Expr::Bitwise>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -41,7 +62,7 @@ Expr::UniquePtr ExprParser::comparison()
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = equality();
-		lhs = Expr::makeExpr<Expr::Comparison>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -49,11 +70,11 @@ Expr::UniquePtr ExprParser::comparison()
 Expr::UniquePtr ExprParser::equality()
 {
 	auto lhs = bitshift();
-	while (matchType(EQUAL, NOT_EQUAL)) {
+	while (matchType(EQUAL_EQUAL, NOT_EQUAL)) {
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = bitshift();
-		lhs = Expr::makeExpr<Expr::Equality>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -65,7 +86,7 @@ Expr::UniquePtr ExprParser::bitshift()
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = term();
-		lhs = Expr::makeExpr<Expr::Bitshift>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -77,7 +98,7 @@ Expr::UniquePtr ExprParser::term()
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = factor();
-		lhs = Expr::makeExpr<Expr::Term>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -89,7 +110,7 @@ Expr::UniquePtr ExprParser::factor()
 		Token::Type oper = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		auto rhs = unary();
-		lhs = Expr::makeExpr<Expr::Factor>(sourcePos, std::move(lhs), oper, std::move(rhs));
+		lhs = Expr::makeExpr<Expr::Binary>(sourcePos, std::move(lhs), oper, std::move(rhs));
 	}
 	return lhs;
 }
@@ -97,7 +118,7 @@ Expr::UniquePtr ExprParser::factor()
 Expr::UniquePtr ExprParser::unary()
 {
 	using enum Token::Type;
-	if (matchType(MINUS, BANG, BIT_NOT, TYPE_DEREF)) {
+	if (matchType(MINUS, BANG, BIT_NOT, TYPE_DEREF, MUT)) {
 		auto type = previousType();
 		Token::SourcePosition sourcePos = previousSourcePos();
 		return Expr::makeExpr<Expr::Unary>(sourcePos, type, unary());
@@ -120,7 +141,8 @@ Expr::UniquePtr ExprParser::primary()
 		return Expr::makeExpr<Expr::CurrentPC>(previousSourcePos());
 	}
 	else if (matchType(IDENT)) {
-		return Expr::makeExpr<Expr::Identifier>(previousSourcePos(), peekPrevious().lexeme);
+		auto identifier = peekPrevious().lexeme;
+		return Expr::makeExpr<Expr::Identifier>(previousSourcePos(), identifier);
 	}
 	else if (matchType(REGISTER)) {
 		return Expr::makeExpr<Expr::Register>(previousSourcePos(), peekPrevious().lexeme);
@@ -141,6 +163,21 @@ void ExprParser::expect(Token::Type expected)
 	if (!matchType(expected)) {
 		throw ExpectedTokenType(expected, peek());
 	}
+}
+
+auto ExprParser::expectIdent() -> std::string_view
+{
+	expect(IDENT);
+	return peekPrevious().lexeme;
+}
+
+auto ExprParser::argList() -> Stmt::ArgList
+{
+	Stmt::ArgList retval;
+	do {
+		retval.push_back(expr());
+	} while (matchType(COMMA));
+	return retval;
 }
 
 Token::Type ExprParser::previousType() const

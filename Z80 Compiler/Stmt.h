@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <string_view>
 #include <optional>
 #include "Expr.h"
 #include "Visitors.h"
@@ -10,7 +11,7 @@ namespace Stmt {
 	class Stmt
 		: public visit::VisitableBase<Stmt,	struct Instruction, struct Label, struct NullStmt,
 		struct Function, struct Bin, struct Module, struct Module, struct Import, struct VarDef, 
-		struct CountLoop, struct Assign, struct If> {
+		struct CountLoop, struct Assign, struct If, struct Return, struct ExprStmt> {
 		public:
 			Token::SourcePosition sourcePos;
 	};
@@ -22,6 +23,7 @@ namespace Stmt {
 	using UniquePtr = std::unique_ptr<Stmt>;
 	using ArgList = std::vector<Expr::UniquePtr>;
 	using StmtBody = std::vector<::Stmt::UniquePtr>;
+	using Program = std::vector<::Stmt::UniquePtr>;
 
 	template<typename T, typename...Args>
 	UniquePtr makeStmt(Token::SourcePosition sourcePos, Args&&...args) {
@@ -33,6 +35,12 @@ namespace Stmt {
 //i would think this is pretty bad practice.
 #include "StmtHelpers.h"
 
+	struct ExprStmt : Stmt::Visitable<ExprStmt> {
+		ExprStmt(::Expr::UniquePtr expr) 
+			: expr(std::move(expr)) {}
+		::Expr::UniquePtr expr;
+	};
+
 	struct Function : Stmt::Visitable<Function> {
 
 		bool isExported;
@@ -40,7 +48,10 @@ namespace Stmt {
 
 		TemplateDecl templateInfo;
 		std::vector<VarDecl> params;
+		::Expr::UniquePtr retType;
 		StmtBody body;
+
+		bool isTemplate() const { return !templateInfo.params.empty(); }
 	};
 
 	struct Bin : Stmt::Visitable<Bin> {
@@ -49,6 +60,7 @@ namespace Stmt {
 
 		TemplateDecl templateInfo;
 		std::vector<VarDecl> body;
+		bool isTemplate() const { return !templateInfo.params.empty(); }
 	};
 
 	struct Module : Stmt::Visitable<Module>	{ 
@@ -63,8 +75,10 @@ namespace Stmt {
 	};
 
 	struct VarDef : Stmt::Visitable<VarDef> {
+		VarDef(GenericDecl decl, bool isExported, std::optional<Expr::UniquePtr> init = std::nullopt) 
+			: decl(std::move(decl)), isExported(isExported), initializer(std::move(init)) {}
 		bool isExported;
-		std::string_view type, name;
+		GenericDecl decl;
 		std::optional<Expr::UniquePtr> initializer;
 	};
 	struct CountLoop : Stmt::Visitable<CountLoop> {
@@ -83,6 +97,9 @@ namespace Stmt {
 		std::optional<StmtBody> elseBranch;
 	};
 
+	struct Return : Stmt::Visitable<Return> {
+		Expr::UniquePtr expr;
+	};
 
 	struct Instruction : Stmt::Visitable<Instruction> {
 		Instruction(std::string_view opcode, ArgList argList)

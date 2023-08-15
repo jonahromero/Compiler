@@ -115,12 +115,14 @@ void Lexer::token() {
 	case '\r': match('\n') ? addNewline() : throw "Invalid Carraiage Return found.";
 	case '*': addToken(STAR); return;
 	case '+': addToken(PLUS); return;
-	case '-': addToken(MINUS); return;
+	case '-': match('>') ? addToken(ARROW) : addToken(MINUS); return;
 	case '/': addToken(SLASH); return;
 	case '^': addToken(BIT_XOR); return;
 	case '~': addToken(BIT_NOT); return;
 	case '(': addToken(LEFT_PARENTH); return;
 	case ')': addToken(RIGHT_PARENTH); return;
+	case '[': addToken(LEFT_BRACKET); return;
+	case ']': addToken(RIGHT_BRACKET); return;
 	case '=': match('=') ? addToken(EQUAL_EQUAL) : addToken(EQUAL); return;
 	case '!': match('=') ? addToken(NOT_EQUAL) : addToken(BANG); return;
 	case '<': match('=') ? addToken(LESS_EQUAL) : (match('<') ? addToken(SHIFT_LEFT) : addToken(LESS)); return;
@@ -193,8 +195,8 @@ void Lexer::string()
 			return true;
 		}
 	});
-	if (!match('\'')) {
-		expectedCharacter('\'');
+	if (!match('\"')) {
+		expectedCharacter('\"');
 	}
 	addToken(STRING, literal);
 }

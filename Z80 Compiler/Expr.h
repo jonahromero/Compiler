@@ -1,5 +1,6 @@
 #pragma once
 #include "Token.h"
+#include <vector>
 #include <memory>
 #include <string>
 #include "Visitors.h"
@@ -8,9 +9,11 @@ namespace Expr {
 
 	class Expr
 		: public visit::VisitableBase<Expr,
-		struct Logical, struct Bitwise, struct Comparison, struct Equality, struct Bitshift, struct Term,
-		struct Factor, struct Unary, struct Parenthesis,
-		struct Identifier, struct Register, struct Flag, struct Literal, struct CurrentPC> {
+		struct Binary, struct Unary, struct Identifier, struct Literal, 
+		struct Parenthesis, struct FunctionCall, struct Indexing, struct MemberAccess,
+		struct Register, struct Flag, struct CurrentPC,
+		struct TemplateCall
+	> {
 	public:
 		Token::SourcePosition sourcePos;
 	};
@@ -28,23 +31,12 @@ namespace Expr {
 		return expr;
 	}
 
-	namespace detail{
-		struct BinaryExpr { 
-			BinaryExpr(UniquePtr lhs, Token::Type oper, UniquePtr rhs) 
-				: lhs(std::move(lhs)), oper(oper), rhs(std::move(rhs)) {}
+	struct Binary : Expr::Visitable<Binary> {
+		Binary(UniquePtr lhs, Token::Type oper, UniquePtr rhs)
+			: lhs(std::move(lhs)), oper(oper), rhs(std::move(rhs)) {}
 
-			UniquePtr lhs; Token::Type oper; UniquePtr rhs; 
-		};
-	}
-
-	struct Logical : Expr::Visitable<Logical>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Bitwise : Expr::Visitable<Bitwise>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Comparison : Expr::Visitable<Comparison>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Equality : Expr::Visitable<Equality>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Bitshift : Expr::Visitable<Bitshift>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Term : Expr::Visitable<Term>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-	struct Factor : Expr::Visitable<Factor>, detail::BinaryExpr { using BinaryExpr::BinaryExpr; };
-
+		UniquePtr lhs; Token::Type oper; UniquePtr rhs;
+	};
 	struct Unary : Expr::Visitable<Unary> {
 		Unary(Token::Type oper, UniquePtr expr) 
 			: oper(oper), expr(std::move(expr)) {}
@@ -56,6 +48,32 @@ namespace Expr {
 			: expr(std::move(expr)) {}
 		UniquePtr expr;
 	};
+	struct FunctionCall : Expr::Visitable<FunctionCall> {
+		FunctionCall(UniquePtr lhs, std::vector<UniquePtr> args)
+			: lhs(std::move(lhs)), arguments(std::move(args)) {}
+		UniquePtr lhs;
+		std::vector<UniquePtr> arguments;
+	};
+	struct TemplateCall : Expr::Visitable<TemplateCall> {
+		TemplateCall(UniquePtr lhs, std::vector<UniquePtr> templateArgs, bool isMut)
+			: lhs(std::move(lhs)), templateArgs(std::move(templateArgs)), isMut(isMut) {}
+
+		std::vector<UniquePtr> templateArgs;
+		UniquePtr lhs;
+		bool isMut;
+	};
+	struct Indexing : Expr::Visitable<Indexing> {
+		Indexing(UniquePtr lhs, UniquePtr innerExpr)
+			: lhs(std::move(lhs)), innerExpr(std::move(innerExpr)) {}
+		UniquePtr lhs, innerExpr;
+	};
+	struct MemberAccess : Expr::Visitable<MemberAccess> {
+		MemberAccess(UniquePtr lhs, std::string_view member)
+			: lhs(std::move(lhs)), member(member) {}
+		UniquePtr lhs;
+		std::string_view member;
+	};
+
 	struct Identifier : Expr::Visitable<Identifier> {
 		Identifier(std::string_view ident) : ident(ident) {}
 		std::string_view ident;
@@ -74,59 +92,3 @@ namespace Expr {
 	};
 	struct CurrentPC : Expr::Visitable<CurrentPC> {};
 }
-/*
-//keeping in case necessary?
-//ICKY ICKY MACROS
-//defines all the expression classes
-//with proper visit functions and members
-
-#define PREPROCCESOR_COMMA ,
-
-#define ExprType(Name, Members, Ctor) \
-	class Name : public Expr { \
-	public: \
-		Name Ctor {}\
-		Members; \
-		virtual void doAccept(Visitor& visitor) override { \
-			visitor.visit(*this); \
-		} \
-	} \
-
-#define TwoOperandExprType(Name) \
-	ExprType(Name, UniquePtr lhs; Token::Type oper; UniquePtr rhs, \
-		(UniquePtr lhs PREPROCCESOR_COMMA Token::Type oper PREPROCCESOR_COMMA UniquePtr rhs) \
-		: lhs(std::move(lhs)) PREPROCCESOR_COMMA oper(oper) PREPROCCESOR_COMMA rhs(std::move(rhs)) \
-	)
-
-	TwoOperandExprType(Logical);
-	TwoOperandExprType(Bitwise);
-	TwoOperandExprType(Comparison);
-	TwoOperandExprType(Equality);
-	TwoOperandExprType(Bitshift);
-	TwoOperandExprType(Term);
-	TwoOperandExprType(Factor);
-
-	ExprType(Unary, Token::Type oper; UniquePtr expr,
-		(Token::Type oper PREPROCCESOR_COMMA UniquePtr expr) : expr(std::move(expr)) PREPROCCESOR_COMMA oper(oper)
-	);
-	//Primary classes
-	ExprType(Parenthesis, UniquePtr expr,
-		(UniquePtr expr) : expr(std::move(expr))
-	);
-	ExprType(Identifier, std::string_view ident,
-		(std::string_view ident) : ident(ident)
-	);
-	ExprType(Register, std::string_view reg,
-		(std::string_view reg) : reg(reg)
-	);
-	ExprType(Flag, std::string_view flag,
-		(std::string_view flag) : flag(flag)
-	);
-	ExprType(Literal, Token::Literal literal,
-		(Token::Literal literal) : literal(literal)
-	);
-	ExprType(CurrentPC, ,
-		()
-	);
-
-}*/

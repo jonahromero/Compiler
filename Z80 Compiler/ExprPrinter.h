@@ -1,15 +1,7 @@
 #pragma once
 #include "Expr.h"
-
-#define printVisitTwoOperand(name) \
-	virtual void visit(name& expr) { \
-		prettyPrint("{lhs}", tokenTypeToStr(expr.oper), "{rhs}"); \
-		indentCallback([&]() { \
-			printExpr(expr.lhs); \
-			printExpr(expr.rhs); \
-		}); \
-	}
-
+#include "spdlog/fmt/fmt.h"
+#include <iostream>
 
 class ExprPrinter
 	: public Expr::Visitor {
@@ -19,37 +11,56 @@ public:
 	ExprPrinter() = default;
 
 	void printExpr(Expr::UniquePtr & expr) {
-		expr->accept(*this);
+		this->visitPtr(expr);
 	}
 
-	printVisitTwoOperand(Expr::Logical);
-	printVisitTwoOperand(Expr::Bitwise);
-	printVisitTwoOperand(Expr::Comparison);
-	printVisitTwoOperand(Expr::Equality);
-	printVisitTwoOperand(Expr::Bitshift);
-	printVisitTwoOperand(Expr::Term);
-	printVisitTwoOperand(Expr::Factor);
-
+	virtual void visit(Expr::Binary& expr) {
+		prettyPrint("{{lhs}} {} {{rhs}}", tokenTypeToStr(expr.oper)); 
+		indentCallback([&]() { 
+			printExpr(expr.lhs); 
+			printExpr(expr.rhs); 
+		}); 
+	}
 	virtual void visit(Expr::Unary& expr) {
-		prettyPrint(tokenTypeToStr(expr.oper), "{rhs}");
+
+		prettyPrint("{} {{rhs}}", tokenTypeToStr(expr.oper));
 		indentCallback([&]() {printExpr(expr.expr); });
 	}
 	//Primary expressions
 	virtual void visit(Expr::Parenthesis& expr) {
-		prettyPrint("(", "{expr}", ")");
+		prettyPrint("(  expr  )");
 		indentCallback([&]() {printExpr(expr.expr); });
 	}
 	virtual void visit(Expr::Identifier& expr) {
-		prettyPrint(expr.ident);
+		prettyPrint("{}",expr.ident);
+	}
+	virtual void visit(Expr::FunctionCall& expr) {
+		prettyPrint("Function Call: {{expr}}({{1st}}, {{2nd}}, ... {{nth}})");
+		indentCallback([&]() {
+			printExpr(expr.lhs); 
+			for (auto& arg : expr.arguments) printExpr(arg);
+		});
+	}
+	virtual void visit(Expr::Indexing& expr) {
+		prettyPrint("Indexing. {{lhs}} [{{rhs}}]");
+		indentCallback([&]() {
+			printExpr(expr.lhs); 
+			printExpr(expr.innerExpr);
+		});
+	}
+	virtual void visit(Expr::MemberAccess& expr) {
+		prettyPrint("Member Access: {{expr}}.", expr.member);
+		indentCallback([&]() {printExpr(expr.lhs); });
+
 	}
 	virtual void visit(Expr::Literal& expr) {
-		prettyPrint(literalToStr(expr.literal));
+		prettyPrint("{}", literalToStr(expr.literal));
 	}
 	virtual void visit(Expr::Register& expr) {
-		prettyPrint("Register", expr.reg);
+		prettyPrint("Register: {}", expr.reg);
 	}
 	virtual void visit(Expr::Flag& expr) {
-		prettyPrint("Flag", expr.flag);
+		prettyPrint("Flag: {}", expr.flag);
 	}
 	virtual void visit(Expr::CurrentPC& expr) {
 		prettyPrint("$");
@@ -63,9 +74,9 @@ protected:
 	}
 
 	template<typename...Args>
-	void prettyPrint(Args&&...args) {
+	constexpr void prettyPrint(std::string_view fmt, Args&&...args) {
 		printSpace();
-		(((std::cout << std::forward<Args>(args)) << ' '), ...);
+		std::cout << fmt::vformat(fmt, fmt::make_format_args(std::forward<Args>(args)...));
 		std::cout << std::endl;
 	}
 

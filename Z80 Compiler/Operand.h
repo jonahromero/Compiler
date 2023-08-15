@@ -5,9 +5,6 @@
 
 namespace Asm {
 
-	using Bytes = std::vector<uint8_t>;
-	using LabelContext = std::unordered_map<std::string_view, uint16_t>;
-
 	struct Number {
 		Number(uint16_t val) : val(val) {}
 		auto operator<=>(const Number&) const = default;
@@ -40,5 +37,13 @@ namespace Asm {
 	};
 
 	using Operand = std::variant<Register, OffsetRegister, Flag, Number, Dereference>;
+	using Bytes = std::vector<uint8_t>;
+	using LabelContext = std::unordered_map<std::string_view, uint16_t>;
+
+	struct Instruction {
+		std::string_view opcode;
+		std::vector<Asm::Operand> operands;
+	};
+	using AsmBlock = std::vector<Instruction>;
 
 }

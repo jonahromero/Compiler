@@ -54,3 +54,26 @@ inline auto toLower(std::string_view str) -> std::string {
 	}
 	return retval;
 }
+
+namespace util {
+	namespace detail {
+		constexpr size_t textSize(char a) { return 1; }
+		constexpr size_t textSize(std::string_view a) { return a.size(); }
+		template<typename T>
+		void addToStr(std::string& str, T&& value) {
+			using U = std::remove_cvref_t<T>;
+			if constexpr (std::is_same_v<U, char>) {
+				str.push_back(value);
+			}
+			else {
+				str.append(std::forward<T>(value));
+			}
+		}
+	}
+	template<typename...Args>
+	auto strBuilder(Args&&...args) -> std::string {
+		std::string str; str.reserve((textSize(args) + ...));
+		(addToStr(str, std::forward<Args>(args)), ...);
+		return str;
+	}
+}

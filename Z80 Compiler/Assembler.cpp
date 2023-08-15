@@ -13,7 +13,7 @@ namespace Asm {
 		std::vector<Asm::Operand> retval;
 		retval.reserve(argList.size());
 		for (auto& arg : argList) {
-			retval.push_back(Asm::OperandDecoder(labelContext, pc).decodeExpr(arg));
+			//retval.push_back(Asm::OperandDecoder(labelContext, pc).decodeExpr(arg));
 		}
 		return retval;
 	}

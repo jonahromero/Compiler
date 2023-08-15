@@ -18,7 +18,7 @@ namespace Asm {
 		class InvalidRegisterAddition {};
 
 		OperandDecoder(LabelContext const& labelContext, uint16_t pc)
-			: labelContext(labelContext), pc(pc) {}
+			: pc(pc), labelContext(labelContext) {}
 
 		Operand decodeExpr(Expr::UniquePtr& expr) {
 			isInnerExpr = false;
@@ -31,13 +31,7 @@ namespace Asm {
 			isInnerExpr = prevExprDepth;
 			return retval;
 		}
-		virtual void visit(Expr::Logical& expr);
-		virtual void visit(Expr::Bitwise& expr);
-		virtual void visit(Expr::Comparison& expr);
-		virtual void visit(Expr::Equality& expr);
-		virtual void visit(Expr::Bitshift& expr);
-		virtual void visit(Expr::Term& expr);
-		virtual void visit(Expr::Factor& expr);
+		virtual void visit(Expr::Binary& expr);
 		virtual void visit(Expr::Unary& expr);
 		//Primary expressions
 		virtual void visit(Expr::Parenthesis& expr);

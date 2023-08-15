@@ -4,98 +4,48 @@
 namespace Asm {
 	using std::holds_alternative;
 
-	void OperandDecoder::visit(Expr::Logical& expr) { 
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr); 
-		switch (expr.oper) { 
-		case AND: 
-			returnValue(Number(lhs && rhs)); break; 
-		case OR: 
-			returnValue(Number(lhs || rhs)); break; 
-		}
-	}
-
-	void OperandDecoder::visit(Expr::Bitwise& expr)
+	void OperandDecoder::visit(Expr::Binary& expr)
 	{
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
-		switch (expr.oper) {
-		case BIT_AND:
-			returnValue(Number(lhs & rhs)); break;
-		case BIT_OR:
-			returnValue(Number(lhs | rhs)); break;
-		case BIT_XOR:
-			returnValue(Number(lhs ^ rhs)); break;
+		if (expr.oper == PLUS || expr.oper == MINUS) {
+			auto lhs = decodeInnerExpr(expr.lhs);
+			auto rhs = decodeInnerExpr(expr.rhs);
+			uint16_t sign = expr.oper == PLUS ? 1 : -1;
+
+			std::visit(OverloadVariant{
+				[&](Number& offset, Register& reg) {
+					returnValue(OffsetRegister(reg.str, sign * offset.val));
+				},
+				[&](Register& reg, Number& offset) {
+					returnValue(OffsetRegister(reg.str, sign * offset.val));
+				},
+				[&](Number& lhs, Number& rhs) {
+					returnValue(Number(lhs.val + sign * rhs.val));
+				},
+				[](auto, auto) {
+					throw InvalidRegisterAddition();
+				}
+			}, lhs, rhs);
 		}
-	}
-
-	void OperandDecoder::visit(Expr::Comparison& expr)
-	{
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
-		switch (expr.oper) {
-		case LESS:
-			returnValue(Number(lhs < rhs)); break;
-		case LESS_EQUAL:
-			returnValue(Number(lhs <= rhs)); break;
-		case GREATER:
-			returnValue(Number(lhs > rhs)); break;
-		case GREATER_EQUAL:
-			returnValue(Number(lhs >= rhs)); break;
-		}
-	}
-
-	void OperandDecoder::visit(Expr::Equality& expr)
-	{
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
-		switch (expr.oper) {
-		case EQUAL:
-			returnValue(Number(lhs == rhs)); break;
-		case NOT_EQUAL:
-			returnValue(Number(lhs != rhs)); break;
-		}
-	}
-
-	void OperandDecoder::visit(Expr::Bitshift& expr)
-	{
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
-		switch (expr.oper) {
-		case SHIFT_LEFT:
-			returnValue(Number(lhs << rhs)); break;
-		case SHIFT_RIGHT:
-			returnValue(Number(lhs >> rhs)); break;
-		}
-	}
-
-	void OperandDecoder::visit(Expr::Term& expr)
-	{
-		auto lhs = decodeInnerExpr(expr.lhs);
-		auto rhs = decodeInnerExpr(expr.rhs);
-		uint16_t sign = expr.oper == PLUS ? 1 : -1;
-
-		std::visit(OverloadVariant{
-			[&](Number& offset, Register& reg) {
-				returnValue(OffsetRegister(reg.str, sign * offset.val));
-			},
-			[&](Register& reg, Number& offset) {
-				returnValue(OffsetRegister(reg.str, sign * offset.val));
-			},
-			[&](Number& lhs, Number& rhs) {
-				returnValue(Number(lhs.val + sign * rhs.val));
-			},
-			[](auto, auto) {
-				throw InvalidRegisterAddition();
+		else{
+			auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
+			switch (expr.oper) {
+				case STAR:			returnValue(Number(lhs * rhs)); break;
+				case SLASH:			returnValue(Number(lhs / rhs)); break;
+				case MODULO:		returnValue(Number(lhs % rhs)); break;
+				case SHIFT_LEFT:	returnValue(Number(lhs << rhs)); break;
+				case SHIFT_RIGHT:	returnValue(Number(lhs >> rhs)); break;
+				case EQUAL:			returnValue(Number(lhs == rhs)); break;
+				case NOT_EQUAL:		returnValue(Number(lhs != rhs)); break;
+				case LESS:			returnValue(Number(lhs < rhs)); break;
+				case LESS_EQUAL:	returnValue(Number(lhs <= rhs)); break;
+				case GREATER:		returnValue(Number(lhs > rhs)); break;
+				case GREATER_EQUAL:	returnValue(Number(lhs >= rhs)); break;
+				case BIT_AND:		returnValue(Number(lhs & rhs)); break;
+				case BIT_OR:		returnValue(Number(lhs | rhs)); break;
+				case BIT_XOR:		returnValue(Number(lhs ^ rhs)); break;
+				case AND:			returnValue(Number(lhs && rhs)); break;
+				case OR: 			returnValue(Number(lhs || rhs)); break;
 			}
-		}, lhs, rhs);
-	}
-
-	void OperandDecoder::visit(Expr::Factor& expr)
-	{
-		auto [lhs, rhs] = getOperandsFromBinaryExpr(expr);
-		switch (expr.oper) {
-		case STAR:
-			returnValue(Number(lhs * rhs)); break;
-		case SLASH:
-			returnValue(Number(lhs / rhs)); break;
-		case MODULO:
-			returnValue(Number(lhs % rhs)); break;
 		}
 	}
 

@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "Operand.h"
 #include "VariantUtil.h"
 #include "StreamViewer.h"
@@ -16,7 +17,7 @@ namespace Asm {
 	class InvalidOperands : std::exception {
 	public:
 		InvalidOperands(std::vector<Operand> unknownOperands)
-			: unknownOperands(unknownOperands) {}
+			: unknownOperands(std::move(unknownOperands)) {}
 		std::vector<Operand> unknownOperands;
 	};
 

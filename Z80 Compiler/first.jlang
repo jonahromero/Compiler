@@ -1,0 +1,86 @@
+bin Pos:
+    x : int
+    y : int
+
+export a : int = 2
+
+export fn<T : type> equal_msg(var : int): ;line 5 
+    count with apple from 1: 
+        add a, 3
+    label: djnz a, 2    ;line 8
+    if print("20"):
+        jojo = 0
+    add a, $ + 20, 45   ;line 11
+    ;add a, (ix + a+ 0)
+    adc a, b
+
+INTERMEDIATE LANGUAGE:
+
+fn equal_msg(var : i16):
+    x_1 <= 1
+    count to 0 from x_1:
+        add a, 3
+label:
+    djnz a, 2
+    y_1 <= print("20")
+    if y_1:
+        z_1 <= 0
+    add a, $+20
+    adc a, b
+
+ASSEMBLY:
+
+a:
+    .dw 2
+msg1:
+    .db "20"
+equal_msg:
+    ld bc, 1
+loop:
+    add a, 3
+    djnz loop
+    push msg1
+    call print
+    
+    add a, $+20
+    adc a, b
+
+EXAMPLE 2:
+
+fn do_operation(var : int): ;line 5 
+    let b:u8 = 30
+    count with a from 20:
+        var += a
+        if var > 20:
+            a = a * 20
+        else:
+            b = get_value(a)
+    return b
+ 
+IM:
+
+fn do_operation(var : i16):
+    b:u8 <= 30
+    a:u16 <= 20
+
+    var <= var + a
+
+
+
+WHEN EXPORTING:
+pass the label information for variables and functions
+pass exported bins, and template functions as code
+
+ENVIROMENT:
+contains all the functions, contains all templates, and bins
+BC, HL, DE, AF, IX, IY, EXTRAS: PC, SP, I, R,
+
+CALLING CONVENTION:
+pass first 8 bit paramater in reg A
+pass first 16 bit parameter in reg HL
+OR pass all items on stack
+
+RETURN CONVENTION:
+value is 8 bit: return in A
+value is 16 bit: return in HL
+value is larger, pass pointer on stack when calling

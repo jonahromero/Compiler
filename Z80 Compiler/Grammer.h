@@ -10,7 +10,7 @@ Terminator -> *("\n") | EOF
 
 ;decls are helpers
 VarDecl -> IDENT ":" Type
-TypeDecl -> "type" IDENT
+TypeDecl -> IDENT ":" "type"
 
 Type -> ("mut")? IDENT ("<" (Type * ("," Type)) ">")?
 VarDef -> ("let" | "export") VarDecl ("=" Expr) ?
@@ -21,7 +21,7 @@ Import -> "import" IDENT
 Bin -> "export"? "bin" Template? IDENT ":" BinBlock
 BinBlock -> * (VarDecl Terminator)
 
-Func -> "export"? "fn" IDENT "(" IDENT ":" Type *("," IDENT ":" Type) ")" ":" StmtBlock
+Func -> "export"? "fn" IDENT "(" IDENT ":" Type *("," IDENT ":" Type) ")" "->" Expr ":" StmtBlock
 StmtBlock -> *(For | If | Return | Label | Instruc | Assign)
 
 Assign -> Expr "=" Expr

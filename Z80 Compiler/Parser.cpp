@@ -4,25 +4,24 @@
 
 using enum Token::Type;
 
-Parser::Program Parser::program()
+Stmt::Program Parser::program()
 {	
-	Program program;
+	Stmt::Program program;
 	while (!matchType(EOF_)) {
 		tryToAddStmt(program);
 	}
 	return program;
 }
 
-void Parser::tryToAddStmt(Program& program)
+void Parser::tryToAddStmt(Stmt::Program& program)
 {
 	try {
 		program.push_back(stmt());
-		return;
 	}
 	catch (ParseError& error) {
 		spdlog::error(error.toString());
+		synchronize();
 	}
-	synchronize();
 }
 
 void Parser::synchronize()

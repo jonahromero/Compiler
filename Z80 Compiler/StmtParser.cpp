@@ -5,53 +5,16 @@ using enum Token::Type;
 Stmt::UniquePtr StmtParser::stmt()
 {
 	bool isExporting = matchType(EXPORT);
-
-	if (matchType(IMPORT)) {
-		auto sourcePos = previousSourcePos();
-		if (matchType(STRING))
-			return Stmt::makeStmt<Stmt::Import>(sourcePos, peekPrevious().lexeme);
-		else
-			throw TokenErrorMessage(peek(), "Import statement expects a string");
-		expect(NEWLINE);
-	}
-	else if (matchType(FN)) {
-		Stmt::Function func;
-		func.isExported = isExporting;
-		auto sourcePos = previousSourcePos();
-		if (matchType(LESS)) {
-			func.templateInfo = templateDecl();
-		}
-		func.name = expectIdent();
-		expect(LEFT_PARENTH);
-		func.params = funcParams();
-		expectConsecutive(COLON, NEWLINE, INDENT);
-		func.body = fnBody();
-		return Stmt::makeStmt<Stmt::Function>(sourcePos, std::move(func));
-
-	}
-	else if (matchType(BIN)) {
-		Stmt::Bin bin;
-		auto sourcePos = previousSourcePos();
-		bin.isExported = isExporting;
-		if (matchType(LESS)) {
-			bin.templateInfo = templateDecl();
-		}
-		if (matchType(IDENT)) {
-			bin.name = peekPrevious().lexeme;
-			expectConsecutive(COLON, NEWLINE, INDENT);
-			bin.body = binBody();
-			return Stmt::makeStmt<Stmt::Bin>(sourcePos, std::move(bin));
-		}
-		else {
-			throw TokenErrorMessage(peek(), "Bin keyword must be followed by identifier.");
-		}
+	auto token = advance();
+	switch (token.type) {
+	case IMPORT: return importStmt(isExporting);
+	case LET: return globalDecl(isExporting);
+	case FN: return fn(isExporting);
+	case BIN: return bin(isExporting);
 	}
 	//special condition, because let is not required if exporting
-	else if (matchType(LET) || (matchType(IDENT) && isExporting)) {
-
-	}
-	else if (matchType(TYPE)) {
-
+	if (isExporting) {
+		return globalDecl(isExporting);
 	}
 	else {
 		throw InvalidModuleStmt(peek());
@@ -62,20 +25,81 @@ Stmt::UniquePtr StmtParser::stmt()
 
 auto StmtParser::binBody() -> std::vector<Stmt::VarDecl>
 {
-	std::vector<Stmt::VarDecl> retval;
-	while (!matchType(DEDENT)) {
-		retval.push_back(varDecl());
+
+	return parseGenericBlock([&]() { 
+		auto current = peek();
+		auto tempDecl = decl();
+		if (std::holds_alternative<Stmt::TypeDecl>(tempDecl)) {
+			throw InvalidBinDecl(current);
+		}
 		expect(NEWLINE);
+		return std::move(std::get<Stmt::VarDecl>(tempDecl));
+	});
+}
+
+auto StmtParser::importStmt(bool shouldExport) -> Stmt::UniquePtr
+{
+	if (shouldExport) TokenErrorMessage(peek(), "Import Statement cannot be exported.");
+	auto sourcePos = previousSourcePos();
+	if (matchType(STRING)) {
+		auto file = peekPrevious().lexeme;
+		expect(NEWLINE);
+		return Stmt::makeStmt<Stmt::Import>(sourcePos, file);
 	}
-	return retval;
+	else {
+		throw TokenErrorMessage(peek(), "Import statement expects a string.");
+	}
+}
+
+auto StmtParser::globalDecl(bool shouldExport) -> Stmt::UniquePtr
+{
+	return letStmt(shouldExport);
+}
+
+auto StmtParser::fn(bool shouldExport) -> Stmt::UniquePtr
+{
+	Stmt::Function func;
+	auto sourcePos = previousSourcePos();
+	func.isExported = shouldExport;
+	func.body = safelyParseStmtBlockHeader([&]() {
+		if (matchType(LESS)) {
+			func.templateInfo = templateDecl();
+		}
+		func.name = expectIdent();
+		expect(LEFT_PARENTH);
+		func.params = funcParams();
+		expect(ARROW);
+		func.retType = expr();
+		expectConsecutive(COLON);
+	});
+	return Stmt::makeStmt<Stmt::Function>(sourcePos, std::move(func));
+
+}
+
+auto StmtParser::bin(bool shouldExport) -> Stmt::UniquePtr
+{
+	Stmt::Bin bin;
+	auto sourcePos = previousSourcePos();
+	bin.isExported = shouldExport;
+	tryExceptionalParsing([&]() {
+		if (matchType(LESS)) {
+			bin.templateInfo = templateDecl();
+		}
+		expect(IDENT);
+		bin.name = peekPrevious().lexeme;
+		expect(COLON);
+	}, false);
+	bin.body = binBody();
+	return Stmt::makeStmt<Stmt::Bin>(sourcePos, std::move(bin));
 }
 
 auto StmtParser::funcParams() -> std::vector<Stmt::VarDecl>
 {
 	std::vector<Stmt::VarDecl> retval;
-	while (!matchType(RIGHT_PARENTH)) {
+	do {
 		retval.push_back(varDecl());
-	}
+	} while (matchType(COMMA));
+	expect(RIGHT_PARENTH);
 	return retval;
 }
 
@@ -85,32 +109,12 @@ auto StmtParser::templateDecl() -> Stmt::TemplateDecl
 	if (matchType(GREATER))
 		throw TokenErrorMessage(peek(), "Empty Template Declerations not allowed");;
 	do {
-		auto name = expectIdent();
-		expect(COLON);
-		bool isMut = matchType(MUT);
-		if (matchType(IDENT)) {
-			retval.addDecl(Stmt::VarDecl(name, Stmt::Type(peekPrevious().lexeme, isMut)));
-		}
-		else if (matchType(TYPE)) {
-			if (isMut) throw TokenErrorMessage(peek(), "mut is not a valid specifier for keyword \'Type\'");
-			retval.addDecl(Stmt::TypeDecl(name));
-		}
-		else {
-			throw TokenErrorMessage(peek(), "Expected Type After variable decleration");
-		}
+		retval.params.push_back(decl());
 	} while (matchType(COMMA));
 	expect(GREATER);
 	return retval;
 }
 
-auto StmtParser::fnBody() -> std::vector<Stmt::UniquePtr>
-{
-	std::vector<Stmt::UniquePtr> retval;
-	while (!matchType(DEDENT)) {
-		retval.push_back(funcStmt());
-	}
-	return retval;
-}
 
 
 

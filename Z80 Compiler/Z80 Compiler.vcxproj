@@ -88,6 +88,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -102,6 +104,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,6 +123,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <EnableModules>false</EnableModules>
       <AdditionalIncludeDirectories>C:\Users\jonah\Desktop\C++ Libraries\spdlog\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -135,6 +140,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,34 +152,41 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Assembler.cpp" />
+    <ClCompile Include="CodeModule.cpp" />
     <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="ExprInterpreter.cpp" />
     <ClCompile Include="ExprParser.cpp" />
-    <ClCompile Include="FnParser.cpp" />
+    <ClCompile Include="BlockParser.cpp" />
     <ClCompile Include="InstructionFormat.cpp" />
     <ClCompile Include="InstructionFormatTable.cpp" />
     <ClCompile Include="Lexers.cpp" />
     <ClCompile Include="OperandDecoder.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="StmtParser.cpp" />
+    <ClCompile Include="TemplateSystem.cpp" />
+    <ClCompile Include="TypeSystem.cpp" />
     <ClCompile Include="Z80 Compiler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ArrayMap.h" />
     <ClInclude Include="AsciiTable.h" />
     <ClInclude Include="Assembler.h" />
-    <ClInclude Include="Bin.h" />
     <ClInclude Include="CharacterUtil.h" />
+    <ClInclude Include="CodeModule.h" />
     <ClInclude Include="Compiler.h" />
+    <ClInclude Include="CompilerError.h" />
     <ClInclude Include="Enviroment.h" />
     <ClInclude Include="ExpectationErrors.h" />
     <ClInclude Include="Expr.h" />
+    <ClInclude Include="ExprInterpreter.h" />
     <ClInclude Include="ExprParser.h" />
     <ClInclude Include="ExprPrinter.h" />
-    <ClInclude Include="FnParser.h" />
-    <ClInclude Include="Function.h" />
+    <ClInclude Include="BlockParser.h" />
     <ClInclude Include="Grammer.h" />
+    <ClInclude Include="IL.h" />
+    <ClInclude Include="ILPrinter.h" />
     <ClInclude Include="InstructionFormat.h" />
     <ClInclude Include="IntTypes.h" />
-    <ClInclude Include="Module.h" />
     <ClInclude Include="Operand.h" />
     <ClInclude Include="OperandFormatBits.h" />
     <ClInclude Include="OperandDecoder.h" />
@@ -180,18 +194,24 @@
     <ClInclude Include="ParseError.h" />
     <ClInclude Include="ReservedIdentifiers.h" />
     <ClInclude Include="Parser.h" />
+    <ClInclude Include="SemanticAnalyzer.h" />
     <ClInclude Include="Stmt.h" />
     <ClInclude Include="StmtHelpers.h" />
     <ClInclude Include="StmtParser.h" />
     <ClInclude Include="StmtPrinter.h" />
     <ClInclude Include="StreamViewer.h" />
     <ClInclude Include="StringUtil.h" />
+    <ClInclude Include="TemplateReplacer.h" />
+    <ClInclude Include="TemplateSystem.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="TokenViewer.h" />
-    <ClInclude Include="Type.h" />
-    <ClInclude Include="Variable.h" />
+    <ClInclude Include="TypeSystem.h" />
     <ClInclude Include="VariantUtil.h" />
+    <ClInclude Include="VectorUtil.h" />
     <ClInclude Include="Visitors.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="first.jlang" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

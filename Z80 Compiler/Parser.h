@@ -8,10 +8,9 @@ public:
 	Parser(std::span<const Token> tokens)
 		: StmtParser(tokens) {}
 
-	using Program = std::vector<Stmt::UniquePtr>;
-	Program program();
+	Stmt::Program program();
 private:	
 	//error handling
-	void tryToAddStmt(Program& program);
+	void tryToAddStmt(Stmt::Program& program);
 	void synchronize();
 };

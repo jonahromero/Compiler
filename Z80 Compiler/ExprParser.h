@@ -29,7 +29,10 @@ private:
 protected:
 	Token::Type previousType() const;
 	Token::SourcePosition previousSourcePos() const;
+
 	void expect(Token::Type expected);
+	auto expectIdent()->std::string_view;
+	auto argList()-> Stmt::ArgList;
 
 	template<typename...Args>
 	void expectConsecutive(Args...args)
@@ -68,7 +71,7 @@ protected:
 			: ParseError(unexpected.sourcePos), unexpected(unexpected) {}
 		
 		std::string msgToString() override {
-			return fmt::format("Unexpected Expression. Cannot start with token of type: {}.",
+			return fmt::format("Unexpected Token. Cannot start with token of type: {}.",
 				tokenTypeToStr(unexpected.type));
 		}
 	private:

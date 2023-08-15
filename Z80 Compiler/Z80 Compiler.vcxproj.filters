@@ -53,20 +53,38 @@
     <Filter Include="Util\STD Util\variant">
       <UniqueIdentifier>{e50aa618-b026-48b5-b571-d0acceaeecea}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Assembler\Operands">
-      <UniqueIdentifier>{7d1a839b-33cd-48cc-a787-5314350a5f5c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Assembler\Instruction Formats">
       <UniqueIdentifier>{110aaaca-aa71-4c77-9197-613c4f4479a2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Compiler\Language Elements">
-      <UniqueIdentifier>{fd286d83-2760-49f1-883b-ead68f974b91}</UniqueIdentifier>
     </Filter>
     <Filter Include="AST\Parser\Parsers">
       <UniqueIdentifier>{2486b574-4e97-4846-880f-7afbffa84776}</UniqueIdentifier>
     </Filter>
     <Filter Include="AST\Parser\Errors">
       <UniqueIdentifier>{fa7e6ec7-4a48-4770-9512-72763aa2f350}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler\module">
+      <UniqueIdentifier>{05b608f2-9c5a-4869-ac1b-6c1558437f99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler\Intermediate Lang">
+      <UniqueIdentifier>{8fbc1cab-c61a-486d-89f8-e92f96eb78a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util\ArrayMap">
+      <UniqueIdentifier>{01089581-84c7-4d0b-a116-cc0aeee74795}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\examples">
+      <UniqueIdentifier>{0d2a3f2c-32be-4a5b-ad38-9336bfecdd72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembler\Operands">
+      <UniqueIdentifier>{7d1a839b-33cd-48cc-a787-5314350a5f5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler\Typing">
+      <UniqueIdentifier>{6d396bc0-0b64-4af5-b847-785d31589b23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler\Typing\Templates">
+      <UniqueIdentifier>{4d04cf6d-3221-41d6-b1fc-ead375e8ae30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler\Interpreter">
+      <UniqueIdentifier>{187f44ea-6e1b-4ed8-9fe9-4e864e69f867}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -100,8 +118,20 @@
     <ClCompile Include="StmtParser.cpp">
       <Filter>AST\Parser\Parsers</Filter>
     </ClCompile>
-    <ClCompile Include="FnParser.cpp">
+    <ClCompile Include="BlockParser.cpp">
       <Filter>AST\Parser\Parsers</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeModule.cpp">
+      <Filter>Compiler\module</Filter>
+    </ClCompile>
+    <ClCompile Include="TypeSystem.cpp">
+      <Filter>Compiler\Typing</Filter>
+    </ClCompile>
+    <ClCompile Include="TemplateSystem.cpp">
+      <Filter>Compiler\Typing\Templates</Filter>
+    </ClCompile>
+    <ClCompile Include="ExprInterpreter.cpp">
+      <Filter>Compiler\Interpreter</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -174,24 +204,6 @@
     <ClInclude Include="Enviroment.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="Module.h">
-      <Filter>Compiler\Language Elements</Filter>
-    </ClInclude>
-    <ClInclude Include="Function.h">
-      <Filter>Compiler\Language Elements</Filter>
-    </ClInclude>
-    <ClInclude Include="Type.h">
-      <Filter>Compiler\Language Elements</Filter>
-    </ClInclude>
-    <ClInclude Include="Bin.h">
-      <Filter>Compiler\Language Elements</Filter>
-    </ClInclude>
-    <ClInclude Include="Variable.h">
-      <Filter>Compiler\Language Elements</Filter>
-    </ClInclude>
-    <ClInclude Include="IntTypes.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="StmtHelpers.h">
       <Filter>AST\Parser\Statements</Filter>
     </ClInclude>
@@ -207,8 +219,49 @@
     <ClInclude Include="ParseError.h">
       <Filter>AST\Parser\Errors</Filter>
     </ClInclude>
-    <ClInclude Include="FnParser.h">
+    <ClInclude Include="BlockParser.h">
       <Filter>AST\Parser\Parsers</Filter>
     </ClInclude>
+    <ClInclude Include="CodeModule.h">
+      <Filter>Compiler\module</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeSystem.h">
+      <Filter>Compiler\Typing</Filter>
+    </ClInclude>
+    <ClInclude Include="IL.h">
+      <Filter>Compiler\Intermediate Lang</Filter>
+    </ClInclude>
+    <ClInclude Include="ArrayMap.h">
+      <Filter>Util\ArrayMap</Filter>
+    </ClInclude>
+    <ClInclude Include="SemanticAnalyzer.h">
+      <Filter>Compiler\Typing</Filter>
+    </ClInclude>
+    <ClInclude Include="IntTypes.h">
+      <Filter>Util\STD Util</Filter>
+    </ClInclude>
+    <ClInclude Include="ILPrinter.h">
+      <Filter>Compiler\Intermediate Lang</Filter>
+    </ClInclude>
+    <ClInclude Include="VectorUtil.h">
+      <Filter>Util\STD Util</Filter>
+    </ClInclude>
+    <ClInclude Include="TemplateReplacer.h">
+      <Filter>Compiler\Typing\Templates</Filter>
+    </ClInclude>
+    <ClInclude Include="TemplateSystem.h">
+      <Filter>Compiler\Typing\Templates</Filter>
+    </ClInclude>
+    <ClInclude Include="ExprInterpreter.h">
+      <Filter>Compiler\Interpreter</Filter>
+    </ClInclude>
+    <ClInclude Include="CompilerError.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="first.jlang">
+      <Filter>Source Files\examples</Filter>
+    </None>
   </ItemGroup>
 </Project>

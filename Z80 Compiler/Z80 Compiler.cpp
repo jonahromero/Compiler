@@ -3,23 +3,29 @@
 
 #include <iostream>
 #include "Compiler.h"
-std::string_view test =
+const char* test =
 R"(
 bin Pos:
     x : int
     y : int
 
-export fn<T : mut type> equal_msg(var : int): 
-    label: djnz a, 2
-    add a, $ + 20, 45
+fn equal_msg(var : int) -> u8: ;line 5 
+    count with apple from 9: 
+        add a, 3
+    label: djnz a, 2    ;line 8
+    if print("20"):
+        jojo = fifo
+    add a, $ + 20, 45   ;line 11
     ;add a, (ix + a+ 0)
     adc a, b
+
+
 )";
 
 int main()
 {
-    Compiler compiler(test);
-    auto bytes = compiler.compile();
+    Compiler compiler;
+    auto bytes = compiler.compile(test);
     for (auto& byte : bytes) {
         //std::cout << std::hex << +byte << std::endl;
     }

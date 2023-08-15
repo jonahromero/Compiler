@@ -68,6 +68,10 @@ namespace visit {
             void accept(typename VisitableBaseImpl::VisitorType& visitor) override {
                 visitor.visit(*static_cast<Derived*>(this));
             }
+
+            auto clone() -> std::unique_ptr<Derived> override {
+                return std::make_unique<Derived>(*static_cast<Dervied*>(this));
+            }
         };
     }
     /*Visitor Base :
@@ -94,6 +98,7 @@ namespace visit {
         template<typename, typename...> friend class detail::Visitor;
         template<typename, typename, typename...> friend class detail::VisitorReturner;
         virtual void accept(VisitorType& visitor) = 0;
+        virtual void clone()->std::unique_ptr<VisitorType>;
     };
 }
 

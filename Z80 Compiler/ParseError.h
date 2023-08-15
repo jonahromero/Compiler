@@ -1,18 +1,14 @@
 #pragma once
-#include <unordered_map>
-#include <stdexcept>
-#include "Token.h"
-#include "spdlog/fmt/fmt.h"
+#include "CompilerError.h"
 
-class ParseError : std::exception {
+/*
+* There are basically three types of Parsing Errors that will occur. Ones that are very specific
+* and require lots of additional data from the context of the parser. Ones that happen very often 
+* and deserve their own class, as theyre constantly being called. Or finally ones that are generic 
+* to only need an error message in their constructor.
+*/
+
+class ParseError : public CompilerError {
 public:
-	ParseError(Token::SourcePosition sourcePos) 
-		: sourcePos(sourcePos) {}
-	
-	std::string toString() {
-		return fmt::format("[Line: {}] ", sourcePos.line) + msgToString();
-	}
-private:
-	Token::SourcePosition sourcePos;
-	virtual std::string msgToString() = 0;
+	using CompilerError::CompilerError;
 };

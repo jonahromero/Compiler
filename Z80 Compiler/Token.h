@@ -8,14 +8,14 @@ class Token {
 public:
 	enum class Type : u8 {
 		COUNT, WITH, FROM, IF, ELSE, RETURN, EXPORT, MODULE, IMPORT, FN, BIN, LET, TYPE,
-		IDENT, NUMBER, STRING, OPCODE, REGISTER, FLAG,
+		IDENT, NUMBER, STRING, OPCODE, REGISTER, FLAG, 
 		COMMA, COLON, PESO, PERIOD, BACKSLASH,
-		PLUS, MINUS, SLASH, STAR, MODULO, TYPE_DEREF, ELLIPSES,
+		PLUS, MINUS, SLASH, STAR, MODULO, TYPE_DEREF, ELLIPSES, ARROW,
 		EQUAL, EQUAL_EQUAL, NOT_EQUAL,
 		LESS, LESS_EQUAL, GREATER, GREATER_EQUAL,
 		AND, OR, BANG, SHIFT_LEFT, SHIFT_RIGHT,
 		BIT_OR, BIT_AND, BIT_XOR, BIT_NOT,
-		LEFT_PARENTH, RIGHT_PARENTH,
+		LEFT_PARENTH, RIGHT_PARENTH, LEFT_BRACKET, RIGHT_BRACKET,
 		MUT, TRUE, FALSE, 
 		/*White space tokens*/
 		NEWLINE, INDENT, DEDENT, 
@@ -53,12 +53,12 @@ inline auto tokenTypeToStr(Token::Type tokenType) -> std::string_view {
 		"Count", "With", "From", "If", "Else", "Return", "Export", "Module", "Import", "Function", "Bin", "Let", "Type",
 		"Identifier", "Number", "String", "Opcode", "Register", "Flag",
 		"Comma", "Colon", "Peso", "Period", "BackSlash", 
-		"Plus", "Minus", "Slash", "Star", "Modulo", "Type Operator", "Ellipses",
+		"Plus", "Minus", "Slash", "Star", "Modulo", "Type Operator", "Ellipses", "Arrow",
 		"Equal", "Equal Equal", "Not Equal",
 		"Less than", "Less than or Equal", "Greater than", "Greater than or Equal",
 		"And", "Or", "Not", "Shift Left", "Shift Right",
 		"Bitwise Or", "Bitwise And", "Bitwise Xor", "Bitwise Not",
-		"Left Parenthesis", "Right Parenthesis",
+		"Left Parenthesis", "Right Parenthesis", "Left Bracket", "Right Bracket",
 		"Mutable", "True", "False",
 		"Newline", "Indent", "Dedent",
 		"End of File"
