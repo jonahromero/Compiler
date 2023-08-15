@@ -10,7 +10,8 @@
 template<typename BodyType, typename ConditionType>
 class GenericBlock
 {
-    friend class CFG;
+    template<typename>
+    friend class GenericCtrlFlowGraph;
     using ThisType = GenericBlock<BodyType, ConditionType>;
 public:
     GenericBlock() { *this = defaultBlock(); }

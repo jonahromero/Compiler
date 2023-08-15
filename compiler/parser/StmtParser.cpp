@@ -72,8 +72,10 @@ auto StmtParser::fn(bool shouldExport) -> Stmt::UniquePtr
 		expect(LEFT_PARENTH);
 		func.params = funcParams();
 		expect(ARROW);
-		func.retType = expr();
-		expectConsecutive(COLON);
+		if (!matchType(COLON)) {
+			func.retType = expr();
+			expectConsecutive(COLON);
+		}
 	});
 	return Stmt::makeStmt<Stmt::Function>(sourcePos, std::move(func));
 }

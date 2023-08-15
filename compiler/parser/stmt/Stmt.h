@@ -50,7 +50,7 @@ namespace Stmt
 	struct Function : Stmt::Visitable<Function> 
 	{
 		Function(TemplateDecl templateInfo, std::string_view name, 
-			std::vector<VarDecl> params, Expr::UniquePtr retType, StmtBody body, bool isExported) 
+			std::vector<VarDecl> params, std::optional<Expr::UniquePtr> retType, StmtBody body, bool isExported) 
 		: templateInfo(std::move(templateInfo)), name(name), params(std::move(params)), 
 			retType(std::move(retType)), body(std::move(body)), isExported(isExported) {}
 
@@ -59,7 +59,7 @@ namespace Stmt
 		TemplateDecl templateInfo;
 		std::string_view name;
 		std::vector<VarDecl> params;
-		::Expr::UniquePtr retType;
+		std::optional<Expr::UniquePtr> retType;
 		StmtBody body;
 		bool isExported;
 

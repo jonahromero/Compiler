@@ -10,6 +10,7 @@
 #include "ExprStmtVisitor.h"
 #include "CtrlFlowGraph.h"
 #include "Generator.h"
+#include "GeneratorErrors.h"
 
 /*Will eventually support lang features*/
 /* Error Handling:
@@ -22,7 +23,8 @@
 
 class FunctionGenerator :
 	public Stmt::VisitorReturner<IL::Program>,
-	public gen::Generator
+	public gen::Generator,
+	public gen::GeneratorErrors
 {
 public:
 	FunctionGenerator(Enviroment& env);
@@ -30,12 +32,11 @@ public:
 
 private:
 	Enviroment& env;
+	std::optional<gen::Variable> returnVariable;
 
-	void startFunctionEnviroment(std::string_view name, std::vector<Stmt::VarDecl> const& params, Expr::UniquePtr const& returnType);
-	IL::Function::Signature createFunctionSignature(
-		std::vector<Stmt::VarDecl> const& params, Expr::UniquePtr const& returnType,
-		std::vector<TypeInstance>& compiledParamTypes, TypeInstance& compiledReturnType
-	);
+	std::vector<gen::Variable> allocateSignature(IL::Program& instructions, std::vector<Stmt::VarDecl> const& params, std::optional<Expr::UniquePtr> const& retType) const;
+	IL::Function::Signature createFunctionSignature(std::vector<gen::Variable> const& params, std::optional<gen::Variable> const& retType);
+	
 
 	ILCtrlFlowGraph transformGraph(CtrlFlowGraph graph);
 

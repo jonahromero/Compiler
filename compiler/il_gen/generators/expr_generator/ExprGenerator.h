@@ -25,20 +25,12 @@ private:
 	static bool isRelationalOperator(Token::Type oper);
 	static bool isArithmeticOperator(Token::Type oper);
 	
-	void assertValidFunctionArgType(SourcePosition pos, TypeInstance param, TypeInstance arg) const;
-	void assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const;
-	void assertValidListLiteral(SourcePosition pos, std::vector<TypeInstance> const& elementTypes, TypeInstance expected) const;
-	void assertCorrectFunctionCall(SourcePosition pos, std::vector<TypeInstance> const& params, std::vector<TypeInstance> const& args);
-
-	PrimitiveType const& expectPrimitive(SourcePosition const& pos, TypeInstance const& type);
-	FunctionType const& expectCallable(SourcePosition const& pos, TypeInstance const& type);
-	BinType::Field const& expectMember(SourcePosition const& pos, TypeInstance const& type, std::string_view name);
-
 	// binary helpers
-	PrimitiveType const& determineBinaryOperandCasts(SourcePosition const& pos, 
-													 PrimitiveType const& lhs, 
+	PrimitiveType const* determineBinaryOperandCasts(SourcePosition const& pos, 
+													 PrimitiveType const* lhs, 
 													 Token::Type oper, 
-													 PrimitiveType const& rhs);
+													 PrimitiveType const* rhs);
+	TypeInstance determineBinaryReturnType(Token::Type oper, TypeInstance defaultType) const;
 	
 	virtual void visit(Expr::Binary& expr);
 	virtual void visit(Expr::Unary& expr);

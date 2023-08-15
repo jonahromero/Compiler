@@ -69,7 +69,7 @@ struct FunctionType final : TypeWithId<FunctionType>
 
 struct PrimitiveType final : TypeWithId<PrimitiveType> 
 {
-	enum class SubType { bool_, u8, i8, u16, i16 } subtype;
+	enum class SubType { void_, bool_, u8, i8, u16, i16 } subtype;
 	PrimitiveType(SubType subtype, std::string name, size_t size)
 		: TypeWithId<PrimitiveType>(std::move(name), size), subtype(subtype) {}
 
@@ -77,6 +77,7 @@ struct PrimitiveType final : TypeWithId<PrimitiveType>
 	{
 		switch (subtype) 
 		{
+		case SubType::void_: return false;
 		case SubType::bool_: return true;
 		case SubType::u8: return false;
 		case SubType::i8: return true;

@@ -8,12 +8,13 @@
 
 using DominatorSet = std::vector<std::pair<size_t, std::set<size_t>>>;
 
-DominatorSet calculateDominatorSets(CFG const& graph)
+DominatorSet calculateDominatorSets(CtrlFlowGraph const& graph)
 {
     DominatorSet dominatorSets;
     for (size_t avoid_node = 0; avoid_node < graph.nodeCount(); avoid_node++) 
     {
-        std::stack<size_t> worklist = { graph.getEntryNode() };
+        std::stack<size_t> worklist;
+        worklist.push(graph.getEntryNode());
         std::set<size_t> visited;
         while (!worklist.empty()) 
         {
@@ -29,7 +30,7 @@ DominatorSet calculateDominatorSets(CFG const& graph)
     return dominatorSets;
 }
 
-PureGraph calculateIdom(CFG const& graph)
+PureGraph calculateIdom(CtrlFlowGraph const& graph)
 {
     auto idom = PureGraph::trivialGraph(graph.nodeCount());
     auto dominatorSets = calculateDominatorSets(graph);
@@ -57,7 +58,7 @@ PureGraph calculateIdom(CFG const& graph)
 }
 
 std::vector<size_t> dominanceFrontierForNode(
-    CFG const& graph, 
+    CtrlFlowGraph const& graph, 
     PureGraph const& idom, 
     size_t node,
     std::unordered_map<size_t, std::vector<size_t>> frontiers
@@ -80,12 +81,12 @@ std::vector<size_t> dominanceFrontierForNode(
     return frontier;
 }
 
-std::unordered_map<size_t, std::vector<size_t>> dominanceFrontier(CFG const& graph)
+std::unordered_map<size_t, std::vector<size_t>> dominanceFrontier(CtrlFlowGraph const& graph)
 {
     std::unordered_map<size_t, std::vector<size_t>> frontiers;
     PureGraph idom = calculateIdom(graph);
     idom.dfs(graph.getEntryNode(), [&](size_t visiting) {
-        frontiers.emplace_back(visiting, dominanceFrontierForNode(graph, idom, visiting, frontiers));
+        frontiers.emplace(visiting, dominanceFrontierForNode(graph, idom, visiting, frontiers));
     });
     return frontiers;
 }

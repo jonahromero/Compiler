@@ -24,7 +24,7 @@ namespace Stmt
 		}
 
 		virtual void visit(Function& func) override {
-			prettyPrint("{}fn<{{template}}> {}({{args}}): {{body}}", func.isExported ? "exported " : "", func.name);
+			prettyPrint("{}fn<{{template}}> {}({{args}}) -> {{return type}}: {{body}}", func.isExported ? "exported " : "", func.name);
 			indentCallback([&]() {
 				printTemplate(func.templateInfo);
 				prettyPrint("Function Arguments:");
@@ -36,6 +36,13 @@ namespace Stmt
 						});
 					}
 				});
+				if (func.retType.has_value()) 
+				{
+					prettyPrint("Return Type:");
+					indentCallback([&]() {
+						printExpr(func.retType.value());
+					});
+				}
 			});
 			printStmts(func.body);
 			prettyPrint("\n");

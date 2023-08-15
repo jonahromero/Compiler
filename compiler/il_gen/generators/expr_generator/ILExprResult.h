@@ -9,7 +9,6 @@ struct ILExprResult
 {
 	IL::Program instructions;
 	gen::Variable output;
-	TypeInstance type;
 
 	gen::ReferenceType getReferenceType() const 
 	{
@@ -24,8 +23,8 @@ private:
 	friend class ILExprResultBuilderInstruction;
 	friend class ILExprResultBuilderExprType;
 
-	ILExprResult(gen::Variable output, TypeInstance type)
-		: output(std::move(output)), type(std::move(type)) {}
+	ILExprResult(gen::Variable output)
+		: output(std::move(output)) {}
 
 	std::optional<std::string_view> m_name;
 	bool m_temporary;
@@ -68,14 +67,16 @@ class ILExprResultBuilderExprType
 public:
 	ILExprResultBuilderInstruction withExprType(TypeInstance type)
 	{
-		ILExprResult result{variable, type};
+		ILExprResult result{ gen::Variable{
+			variable.value(), refType, type
+		}};
 		result.m_name = std::move(m_name);
 		return ILExprResultBuilderInstruction{ std::move(result) };
 	}
 protected:
-	gen::ReferenceType m_referenceType;
+	gen::ReferenceType refType;
+	std::optional<IL::Variable> variable; // delayed initialization
 	std::optional<std::string_view> m_name;
-	gen::Variable variable;
 };
 
 class ILExprResultBuilderOutput : protected ILExprResultBuilderExprType
@@ -83,7 +84,7 @@ class ILExprResultBuilderOutput : protected ILExprResultBuilderExprType
 public:
 	ILExprResultBuilderExprType& withOutputAt(IL::Variable variable)
 	{
-		this->variable.ilName = variable;
+		this->variable = variable;
 		return *this;
 	}
 };
@@ -93,13 +94,13 @@ struct ILExprResultBuilder : protected ILExprResultBuilderOutput
 public:
 	ILExprResultBuilderOutput& createNamedReference(std::string_view name, gen::ReferenceType refType)
 	{
-		variable.refType = refType;
+		this->refType = refType;
 		m_name = name;
 		return *this;
 	}
 
 	ILExprResultBuilderOutput& createUnnamedReference(gen::ReferenceType refType) {
-		variable.refType = refType;
+		this->refType = refType;
 		return *this;
 	}
 };

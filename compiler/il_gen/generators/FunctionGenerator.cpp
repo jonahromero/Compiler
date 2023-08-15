@@ -12,52 +12,59 @@ FunctionGenerator::FunctionGenerator(Enviroment& env)
 
 IL::Function FunctionGenerator::generate(Stmt::Function function)
 {
+	IL::Function ilFunction;
 	ILCtrlFlowGraph ilCfg;
 	env.startScope();
-	{
-		startFunctionEnviroment(function.name, function.params, function.retType);
+	{	
+		std::vector<gen::Variable> paramVariables = allocateSignature(ilFunction.body, function.params, function.retType);
 		ilCfg = transformGraph(CtrlFlowGraphGenerator{ function.body }.generate());
 	}
 	env.endScope();
 
-	IL::Function function;
-	function.body = flattenILCtrlFlowGraph(std::move(ilCfg));
-	return function;
+	ilFunction.body = flattenILCtrlFlowGraph(std::move(ilCfg));
+	ilFunction.signature = createFunctionSignature(paramVariables, returnVariable);
+	return ilFunction;
 }
 
-void FunctionGenerator::startFunctionEnviroment(std::string_view name, std::vector<Stmt::VarDecl> const& params, Expr::UniquePtr const& returnType)
+std::vector<gen::Variable> 
+FunctionGenerator::allocateSignature(
+	IL::Program& instructions,
+	std::vector<Stmt::VarDecl> const& params, 
+	std::optional<Expr::UniquePtr> const& retType
+) const
 {
-	TypeInstance instantiatedReturnType;
-	std::vector<TypeInstance> instantiatedParamTypes;
-	IL::Function::Signature signature = createFunctionSignature(params, returnType, instantiatedParamTypes, instantiatedReturnType);
-	TypePtr type = env.types.addFunction(std::move(instantiatedParamTypes), instantiatedReturnType);
-	env.createVariable(name, TypeInstance(type));
+	std::vector<gen::Variable> paramVariables;
+	for (auto& param : params) 
+	{
+		TypeInstance type = env.instantiateType(param.type);
+		paramVariables.push_back(allocateParameter(instructions, type);
+	}
+	if (retType.has_value()) 
+	{
+		returnVariable = env.instantiateType(retType.value());
+		paramVariables.push_back();
+	}
+	return paramVariables;
 }
 
-IL::Function::Signature FunctionGenerator::createFunctionSignature(
-	std::vector<Stmt::VarDecl> const& params, Expr::UniquePtr const& returnType, 
-	std::vector<TypeInstance>& compiledParamTypes, TypeInstance& instantiatedReturnType
-) 
+IL::Function::Signature FunctionGenerator::createFunctionSignature(std::vector<gen::Variable> const& params, std::optional<gen::Variable> const& retType)
 {
 	IL::Function::Signature signature;
-	instantiatedReturnType = env.instantiateType(returnType);
-	signature.params = util::transform_vector(params, [&](Stmt::VarDecl const& decl) {
-		compiledParamTypes.push_back(env.instantiateType(decl.type));
-		IL::Variable var = env.createVariable(decl.name, compiledParamTypes.back());
-		IL::Type type = env.getILAliasType(var);
-		return IL::Decl(var, type);
+	signature.params = util::transform_vector(params, [&](gen::Variable const& param) {
+		return IL::Decl(param.ilName, env.getILAliasType(param.ilName));
 	});
-	// sort the parameters such that pointers come at the end
-	std::sort(signature.params.begin(), signature.params.end(), [](auto& lhs, auto& rhs) {
-		return (lhs.type == IL::Type::u8_ptr) < (rhs.type == IL::Type::u8_ptr);
-	});
-	auto compiledReturnType = env.types.compileType(instantiatedReturnType);
-	if (compiledReturnType != IL::Type::u8_ptr) {
-		signature.returnType = compiledReturnType;
-	}
-	else {
-		signature.params.push_back(IL::Type::u8_ptr);
+	auto ilReturnType = env.getILVariableType(returnVariable.ilName);
+	if (!retType.has_value()) {
 		signature.returnType = IL::Type::void_;
+	}
+	else if (shouldPassInReturnValue(retType)) 
+	{
+		signature.returnType = IL::Type::void_;
+		signature.params.push_back(IL::Decl(returnVariable.ilName, ilReturnType));
+	}
+	else 
+	{
+		signature.returnType = ilReturnType;
 	}
 	return signature;
 }
@@ -82,9 +89,10 @@ ILCtrlFlowGraph FunctionGenerator::transformGraph(CtrlFlowGraph graph)
 			util::vector_append(outBody, visitChild(stmt));
 		}
 		if (uncompiledNode.splits()) {
-			auto exprResult = ExprGenerator::defaultContext(env).generateWithCast(uncompiledNode.splitsOn(), IL::Type::i1);
+			TypeInstance boolType = env.types.getPrimitiveType(PrimitiveType::SubType::bool_);
+			auto exprResult = ExprGenerator::defaultContext(env).generateWithCast(uncompiledNode.splitsOn(), boolType);
 			util::vector_append(outBody, std::move(exprResult.instructions));
-			out.nodeData(node).splitWith(exprResult.output);
+			out.nodeData(node).splitWith(exprResult.output.ilName);
 		}
 	});
 	return out;
@@ -110,17 +118,14 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 	[&](Stmt::VarDecl const& decl) 
 	{
 		TypeInstance type = env.instantiateType(decl.type);
-		gen::Variable lhs = allocateVariable(instructions, type);
-		IL::Type ilType = env.getILAliasType(ilVar);
+		gen::Variable lhs = allocateNamedVariable(instructions, decl.name, type);
 
 		if (varDef.initializer.has_value()) 
 		{
 			auto exprResult = ExprGenerator::typedContext(env, type.type)
 											.generateWithCast(varDef.initializer.value(), type);
-			util::vector_append(output, std::move(exprResult.instructions));
-			output.push_back(IL::makeIL<IL::Assignment>(
-				ilVar, ilType, exprResult.output
-			));
+			util::vector_append(instructions, std::move(exprResult.instructions));
+			assignVariable(instructions, lhs, exprResult.output);
 		}
 	},
 	[&](Stmt::TypeDecl const& decl)
@@ -132,22 +137,25 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 	}
 	}, varDef.decl);
 
-	returnValue(std::move(output));
+	returnValue(std::move(instructions));
 }
 
 void FunctionGenerator::visit(Stmt::Assign& assign)
 {
-	/*
+	IL::ILBody instructions;
 	ILExprResult lhs = ExprGenerator::defaultContext(env).generate(assign.lhs);
+	ILExprResult rhs = ExprGenerator::defaultContext(env).generate(assign.rhs);
+	util::vector_append(instructions, lhs.instructions);
+	util::vector_append(instructions, rhs.instructions);
 
-	if (!lhs.producesObjectRef()) {
+	if (lhs.isTemporary()) {
 		throw SemanticError(assign.sourcePos, "Left hand side does not produce a l-value to assign to.");
 	}
-	TypeInstance refType = lhs.getResultingRefType();
-	IL::Type ilType = env.types.compileType(refType.type);
-	if (!refType.isMut) {
-		throw SemanticError(assign.sourcePos, "Unable to assign a value to a non-mutable reference.");
-	}*/
+	if (!lhs.output.type.isMut) {
+		throw SemanticError(assign.sourcePos, "Cannot assign a value as a mutable reference.");
+	}
+	assignVariable(instructions, lhs.output, rhs.output);
+	returnValue(std::move(instructions));
 }
 
 void FunctionGenerator::visit(Stmt::ExprStmt& exprStmt)
@@ -164,5 +172,13 @@ void FunctionGenerator::visit(Stmt::Instruction& stmt)
 
 void FunctionGenerator::visit(Stmt::Return& stmt)
 {
-	//returnValue(ExprGenerator::defaultContext(env).generate(stmt.expr));
+	auto result = ExprGenerator::defaultContext(env).generateWithCast(stmt.expr, returnVariable.value().type);
+	if (!returnVariable.has_value()) 
+	{
+		returnVariable = allocateReturnValue(result.output.type);
+	}
+	assertIsAssignableType(stmt.sourcePos, result.output.type, returnVariable.value().type);
+	assignVariable(instructions, returnVariable.value(), result.output);
+	result.instructions(IL::makeIL<IL::Return>(returnVariable.value().ilName));
+	returnValue(std::move(result.instructions));
 }

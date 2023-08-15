@@ -61,7 +61,7 @@ inline auto tokenTypeToStr(Token::Type tokenType) -> std::string_view
 		"And", "Or", "Not", "Shift Left", "Shift Right",
 		"Bitwise Or", "Bitwise And", "Bitwise Xor", "Bitwise Not",
 		"Left Parenthesis", "Right Parenthesis", "Left Bracket", "Right Bracket", "Left Brace", "Right Brace",
-		"Mutable", "True", "False",
+		"Mutable", "True", "False", "None",
 		"Newline", "Indent", "Dedent",
 		"End of File"
 	};

@@ -13,6 +13,8 @@
 #include "ExprGenerator.h"
 #include "ExprGenerator.h"
 #include "ExprGenerator.h"
+#include "ExprGenerator.h"
+#include "ExprGenerator.h"
 #include "VectorUtil.h"
 #include "StringUtil.h"
 #include "SemanticError.h"
@@ -25,7 +27,7 @@ ExprGenerator::ExprGenerator(Enviroment& env, TypePtr typeContext)
 
 ExprGenerator ExprGenerator::defaultContext(Enviroment& env)
 {
-	return ExprGenerator(env, &env.types.getPrimitiveType(PrimitiveType::SubType::i16));
+	return ExprGenerator(env, env.types.getPrimitiveType(PrimitiveType::SubType::i16));
 }
 
 ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
@@ -36,9 +38,8 @@ ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
 ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr& expr, TypeInstance outputType)
 {
 	ILExprResult result = visitChild(expr);
-	assertIsAssignableType(expr->sourcePos, result.type, outputType);
-	castVariable(result.instructions, result.output, result.type, outputType);
-	result.type = outputType;
+	assertIsAssignableType(expr->sourcePos, result.output.type, outputType);
+	result.output = castVariable(result.instructions, result.output, outputType);
 	return result;
 }
 
@@ -47,138 +48,51 @@ ILExprResult ExprGenerator::generate(Expr::UniquePtr& expr)
 	return visitChild(expr);
 }
 
-PrimitiveType const& ExprGenerator::expectPrimitive(SourcePosition const& pos, TypeInstance const& type)
-{
-	if (type.isOpt)
-	{
-		throw SemanticError(pos, "Expected a primitive type, but found a maybe type instead.");
-	}
-	auto primitiveType = type.type->getExactType<PrimitiveType>();
-	if ( !primitiveType)
-	{
-		throw SemanticError(pos, fmt::format(
-							"Expected a primitive type, "
-							"but found the following instead: {}",
-							type.type->name));
-	}
-	return *primitiveType;
-}
-
-FunctionType const& ExprGenerator::expectCallable(SourcePosition const& pos, TypeInstance const& type)
-{
-	if (type.isOpt)
-	{
-		throw SemanticError(pos, "Expected a callable type, but found a maybe type instead.");
-	}
-	auto functionType = type.type->getExactType<FunctionType>();
-	if (!functionType)
-	{
-		throw SemanticError(pos, fmt::format(
-							"Expected a callable type, "
-							"but found the following instead: {}", 
-							type.type->name));
-	}
-	return *functionType;
-}
-
-BinType::Field const& ExprGenerator::expectMember(SourcePosition const& pos, TypeInstance const& type, std::string_view member)
-{
-	auto* bin = type.type->getExactType<BinType>();
-	if (!bin) {
-		throw SemanticError(pos, fmt::format("Cannot perform member access on the following type: {}", type.type->name));
-	}
-	auto it = std::find_if(bin->members.begin(), bin->members.end(), [member](auto& field) {
-		return member == field.name;
-	});
-	if (it == bin->members.end()) {
-		throw SemanticError(pos, fmt::format("No member \"{}\" exists in the type: {}", member, bin->name));
-	}
-	return *it;
-}
-
-
-void ExprGenerator::assertValidFunctionArgType(SourcePosition pos, TypeInstance param, TypeInstance arg) const
-{
-	if (param.type != arg.type) {
-		throw SemanticError(pos, fmt::format("Passed in an argument of: {}, however, "
-											 "the function expected an argument of type: {}", 
-											 param.type->name, arg.type->name));
-	}
-	if (param.isRef && !arg.isRef) {
-		throw SemanticError(pos, "Argument passed is not a reference type");
-	}
-}
-
-void ExprGenerator::assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const
-{
-	if (dest.type != src.type) 
-	{
-		throw SemanticError(pos, fmt::format("Cannot initialize an expression of type: {}, when "
-											 "an argument of type: {}, is expected.",
-											 dest.type->name, src.type->name));
-	}
-}
-
-void ExprGenerator::assertCorrectFunctionCall(SourcePosition pos, std::vector<TypeInstance> const& params, std::vector<TypeInstance> const& args)
-{
-	if (params.size() != args.size()) {
-		throw SemanticError(pos,
-			fmt::format("Function expected {} arguments, however, it recieved {} instead.",
-				params.size(), args.size()
-			));
-	}
-	for (size_t i = 0; i < params.size(); i++) 
-	{
-		assertValidFunctionArgType(pos, params[i], args[i]);
-	}
-}
-
-void ExprGenerator::assertValidListLiteral(SourcePosition pos, std::vector<TypeInstance> const& elementTypes, TypeInstance expected) const
-{
-	if (elementTypes.empty()) return;
-	for (auto& type : elementTypes) 
-	{
-		assertIsAssignableType(pos, expected, type);
-	}
-}
-
-PrimitiveType const&
+PrimitiveType const*
 ExprGenerator::determineBinaryOperandCasts(SourcePosition const& pos,
-	PrimitiveType const& lhs,
+	PrimitiveType const* lhs,
 	Token::Type oper,
-	PrimitiveType const& rhs)
+	PrimitiveType const* rhs)
 {
 	using enum PrimitiveType::SubType;
 	if (isLogicalOperator(oper))
 	{
-		return *env.types.getPrimitiveType(bool_);
+		return env.types.getPrimitiveType(bool_);
 	}
-	else if (lhs.subtype == bool_) { return rhs; }
-	else if (rhs.subtype == bool_) { return lhs; }
-	else if (lhs.size == rhs.size)
+	else if (lhs->subtype == bool_) { return rhs; }
+	else if (rhs->subtype == bool_) { return lhs; }
+	else if (lhs->size == rhs->size)
 	{
-		if (lhs.isUnsigned() == rhs.isUnsigned())
+		if (lhs->isUnsigned() == rhs->isUnsigned())
 		{
 			return lhs; // or rhs. theyre the same
 		}
-		else if (!lhs.isLargestType())
+		else if (!lhs->isLargestType())
 		{
-			return *env.types.getPrimitiveType(lhs.getPromotedSubType());
+			return env.types.getPrimitiveType(lhs->getPromotedSubType());
 		}
 		else
 		{
 			std::string msg = fmt::format(
 				"Explicit cast required for the {} of the binary expression. "
 				"Beware of a potential overflow combining unsigned/signed types.",
-				lhs.isUnsigned() ? "left hand side" : "right hand side"
+				lhs->isUnsigned() ? "left hand side" : "right hand side"
 			);
 			throw SemanticError(pos, std::move(msg));
 		}
 	}
 	else
 	{
-		return lhs.size >= rhs.size ? lhs : rhs;
+		return lhs->size >= rhs->size ? lhs : rhs;
 	}
+}
+
+TypeInstance ExprGenerator::determineBinaryReturnType(Token::Type oper, TypeInstance defaultType) const
+{
+	if (isLogicalOperator(oper) || isRelationalOperator(oper))
+		return TypeInstance(env.types.getPrimitiveType(PrimitiveType::SubType::bool_));
+	else
+		return defaultType;
 }
 
 void ExprGenerator::visit(Expr::Binary& expr)
@@ -188,25 +102,25 @@ void ExprGenerator::visit(Expr::Binary& expr)
 	util::vector_append(instructions, std::move(lhs.instructions));
 	util::vector_append(instructions, std::move(rhs.instructions));
 
-	auto& lhsType	 = expectPrimitive(expr.lhs->sourcePos, lhs.type);
-	auto& rhsType	 = expectPrimitive(expr.rhs->sourcePos, rhs.type);
-	auto& castType	 = determineBinaryOperandCasts(lhsType, expr.oper, rhsType);
-	auto& returnType = TypeInstance(&(isLogicalOperator(expr.oper) || isRelationalOperator(expr.oper) ?
-						env.types.getPrimitiveType(PrimitiveType::SubType::bool_) : castType));
+	PrimitiveType const* lhsType  = expectPrimitive(expr.lhs->sourcePos, lhs.output.type);
+	PrimitiveType const* rhsType  = expectPrimitive(expr.rhs->sourcePos, rhs.output.type);
+	
+	TypeInstance castType = determineBinaryOperandCasts(expr.sourcePos, lhsType, expr.oper, rhsType);
+	TypeInstance returnType = determineBinaryReturnType(expr.oper, castType);
 
-	if (canDereferenceValue(lhs.output, lhs.type))
-		lhs.output = derefVariable(instructions, lhs.output, lhs.type);
-	if (canDereferenceValue(rhs.output, rhs.type))
-		rhs.output = derefVariable(instructions, rhs.output, rhs.type);
+	if (canDereferenceValue(lhs.output))
+		lhs.output = derefVariable(instructions, lhs.output);
+	if (canDereferenceValue(rhs.output))
+		rhs.output = derefVariable(instructions, rhs.output);
 
-	lhs.output = castVariable(instructions, lhs.output, lhs.type, TypeInstance(&castType));
-	rhs.output = castVariable(instructions, rhs.output, rhs.type, TypeInstance(&castType));
+	lhs.output = castVariable(instructions, lhs.output, castType);
+	rhs.output = castVariable(instructions, rhs.output, castType);
 
-	gen::Variable out = allocateVariable(instructions, TypeInstance(&returnType));
+	gen::Variable out = allocateVariable(instructions, returnType);
 	IL::Type ilReturnType = env.getILAliasType(out.ilName);
 
 	returnValue(ILExprResultBuilder{}.createUnnamedReference(out.refType)
-									 .withOutputAt(out.ilName).withExprType(TypeInstance(&returnType))
+									 .withOutputAt(out.ilName).withExprType(returnType)
 									 .andInstructions(std::move(instructions))
 									 .andInstruction<IL::Binary>(
 										 out.ilName, ilReturnType,
@@ -219,20 +133,22 @@ void ExprGenerator::visit(Expr::Unary& expr)
 	IL::ILBody instructions;
 	auto rhs = visitChild(expr.expr);
 	util::vector_append(instructions, std::move(rhs.instructions));
-	auto& rhsType = expectPrimitive(expr.rhs->sourcePos, rhs.type);
-	auto& retType = rhsType;
 
-	if (isLogicalOperator(expr.oper)) 
+	PrimitiveType const* rhsType = expectPrimitive(expr.sourcePos, rhs.output.type);
+	TypeInstance retType = rhsType;
+
+	if (isLogicalOperator(expr.oper))
 	{
-		retType = env.types.getPrimitiveType(PrimitiveType::SubType::bool_);
-		rhs.output = castVariable(instructions, IL::Type::i1, rhs.output);
+		TypeInstance boolType = env.types.getPrimitiveType(PrimitiveType::SubType::bool_);
+		castVariable(instructions, rhs.output, boolType);
+		retType = boolType;
 	}
-	gen::Variable out = allocateVariable(instructions, TypeInstance(&retType));
+	gen::Variable out = allocateVariable(instructions, retType);
 	IL::Type ilReturnType = env.getILAliasType(out.ilName);
 
 	returnValue(ILExprResultBuilder{}
 		.createUnnamedReference(out.refType)
-		.withOutputAt(out.ilName).withExprType(TypeInstance(&retType))
+		.withOutputAt(out.ilName).withExprType(retType)
 		.andInstructions(std::move(instructions))
 		.andInstruction<IL::Unary>(
 			out.ilName, ilReturnType,
@@ -242,22 +158,17 @@ void ExprGenerator::visit(Expr::Unary& expr)
 
 void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
 {
-	if (expr.args.size() != 1)
-	{
-		std::string msg = fmt::format("{} expected a single argument.", 
-									  tokenTypeToStr(expr.function));
-		throw SemanticError(expr.sourcePos, std::move(msg));
-	}
-	auto argument = visitChild(expr.args[0]);
+	auto argument = visitChild(expectOneArgument(expr.sourcePos, std::move(expr.args)));
+
 	switch (expr.function) 
 	{
 	case Token::Type::SIZEOF: 
 	{
-		IL::Instruction instructions;
+		IL::ILBody instructions;
 		TypeInstance exprType = env.types.getPrimitiveType(PrimitiveType::SubType::u16);
-		size_t typeSize = calculateTypeSizeBytes(argument.type);
+		size_t typeSize = calculateTypeSizeBytes(argument.output.type);
 		gen::Variable out = allocateVariable(instructions, exprType);
-		IL::Type ilReturnType = env.getILAliasType(result.ilName);
+		IL::Type ilReturnType = env.getILAliasType(argument.output.ilName);
 
 		returnValue(ILExprResultBuilder{}
 			.createUnnamedReference(out.refType)
@@ -285,7 +196,7 @@ void ExprGenerator::visit(Expr::Identifier& expr)
 	{
 		returnValue(ILExprResultBuilder{}
 			.createNamedReference(expr.ident, env.getVariableReferenceType(expr.ident))
-			.withOutputAt(env.getVariableILAlias(expr.ident))
+			.withOutputAt(env.getILVariableType(expr.ident))
 			.withExprType(env.getVariableType(expr.ident))
 			.buildAsPersistent());
 	}
@@ -327,7 +238,7 @@ void ExprGenerator::visit(Expr::FunctionCall& expr)
 	auto argResults = util::transform_vector(expr.arguments, 
 	[&](Expr::UniquePtr const& arg) {
 		auto argResult = visitChild(arg);
-		argumentTypes.push_back(argResult.type);
+		argumentTypes.push_back(argResult.output.type);
 		return argResult;
 	});
 	assertCorrectFunctionCall(expr.sourcePos, funcType.params, argumentTypes);

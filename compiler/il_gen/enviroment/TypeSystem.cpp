@@ -10,8 +10,8 @@ TypeSystem::TypeSystem(Enviroment& env)
 	: env(env)
 {
 	using enum PrimitiveType::SubType;
-	static constexpr std::array<std::tuple<PrimitiveType::SubType, const char*, size_t>, 5> primitiveTypes = {
-		{ u16, "u16", 2 }, { i16, "i16", 2}, { u8, "u8", 1 }, { i8, "i8", 1}, { bool_, "bool", 1 }
+	static constexpr std::array<std::tuple<PrimitiveType::SubType, const char*, size_t>, 6> primitiveTypes = {
+		{ u16, "u16", 2 }, { i16, "i16", 2}, { u8, "u8", 1 }, { i8, "i8", 1}, { bool_, "bool", 1 }, {void_, "void", 0}
 	};
 	for (auto [subtype, name, size] : primitiveTypes)
 	{
@@ -109,44 +109,6 @@ Type const* TypeSystem::searchTypes(std::string_view name) const
 	return it != types.end() ? &(**it) : nullptr;
 }
 
-IL::Type TypeSystem::compileType(TypeInstance type)
-{
-	if (type.isOpt || type.isRef) 
-	{
-		return IL::Type::u8_ptr;
-	}
-	else if (auto primitiveType = type.type->getExactType<PrimitiveType>())
-	{
-		using enum PrimitiveType::SubType;
-		switch (primitiveType->subtype)
-		{
-		case bool_: return IL::Type::i1;
-		case u8: return IL::Type::u8;
-		case i8: return IL::Type::i8;
-		case u16: return IL::Type::u16;
-		case i16: return IL::Type::i16;
-		default: COMPILER_NOT_REACHABLE;
-		}
-	}
-	else 
-	{
-		return IL::Type::u8_ptr;
-	}
-}
-
-size_t TypeSystem::calculateTypeSize(TypeInstance type) const
-{
-	if (type.isRef) {
-		if (type.isOpt)
-			return POINTER_SIZE + 1;
-		return POINTER_SIZE;
-	}
-	else { // Not a reference
-		size_t totalSize = type.type->size + (type.isOpt ? 1 : 0);
-		return totalSize;
-	}
-}
-
 std::string TypeSystem::createFunctionName(std::vector<TypeInstance> const& paramTypes, TypeInstance const& returnType) const
 {
 	std::string name = "(";
@@ -160,7 +122,7 @@ std::string TypeSystem::createFunctionName(std::vector<TypeInstance> const& para
 	return name;
 }
 
-Type const& TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
+TypePtr TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
 {
 	for (auto& type : types) 
 	{
@@ -168,19 +130,24 @@ Type const& TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
 		{
 			if (primitiveType->subtype == subtype)
 			{
-				return *type;
+				return type;
 			}
 		}
 	}
 	COMPILER_NOT_REACHABLE;
 }
 
-Type const& TypeSystem::getType(std::string_view name) const
+TypePtr TypeSystem::getType(std::string_view name) const
 {
-	return *searchTypes(name);
+	return searchTypes(name);
 }
 
 bool TypeSystem::isType(std::string_view name) const
 {
 	return searchTypes(name) != nullptr;
+}
+
+TypePtr TypeSystem::getVoidType() const
+{
+	return getPrimitiveType(PrimitiveType::SubType::void_);
 }

@@ -13,29 +13,22 @@ Enviroment::Enviroment()
 
 void Enviroment::startScope()
 {
-	typeAliases.emplace_back();
-	variables.emplace_back();
-	ilAliasTypes.emplace_back();
+	typeAliases.newScope();
+	variables.newScope();
+	ilVariableTypes.newScope();
 }
 
-void Enviroment::endScope()
+void Enviroment::destroyScope()
 {
-	typeAliases.pop_back();
-	variables.pop_back();
-	ilAliasTypes.pop_back();
-}
-
-IL::Variable Enviroment::createVariable(std::string_view name, TypeInstance type, gen::ReferenceType refType)
-{
-	auto alias = createAnonymousVariable(types.compileType(type.type));
-	variables.back().emplace(name, VarInfo{ type, alias, refType });
-	return alias;
+	typeAliases.destroyScope();
+	variables.destroyScope();
+	ilVariableTypes.destroyScope();
 }
 
 IL::Variable Enviroment::createAnonymousVariable(IL::Type ilType)
 {
 	auto temp = variableCreator.createVariable();
-	ilAliasTypes.back().emplace(temp, std::move(ilType));
+	ilVariableTypes.currentScope().emplace(temp, std::move(ilType));
 	return temp;
 }
 
@@ -44,24 +37,13 @@ bool Enviroment::isValidVariable(std::string_view name) const
 	return searchVariables(name) != nullptr;
 }
 
-IL::Variable const& Enviroment::getVariableILAlias(std::string_view name) const
+void Enviroment::upgradeILVariableToVariable(IL::Variable variable, std::string_view name, TypeInstance type, gen::ReferenceType refType)
 {
-	return searchVariables(name)->ilAlias;
-}
-
-TypeInstance const& Enviroment::getVariableType(std::string_view name) const
-{
-	return searchVariables(name)->type;
-}
-
-gen::ReferenceType Enviroment::getVariableReferenceType(std::string_view name) const
-{
-	return searchVariables(name)->refType;
-}
-
-gen::Type Enviroment::getILAliasType(IL::Variable variable) const
-{
-	return ilAliasTypes.back().at(variable);
+	variables.currentScope().emplace(name,
+		gen::Variable {
+			variable, refType, type,
+		}
+	);
 }
 
 TypeInstance Enviroment::instantiateType(Expr::UniquePtr const& expr)
@@ -83,7 +65,7 @@ TypeInstance Enviroment::instantiateType(Expr::UniquePtr const& expr)
 
 void Enviroment::addTypeAlias(std::string_view name, TypeInstance instance)
 {
-	typeAliases.back().emplace(name, instance);
+	typeAliases.currentScope().emplace(name, instance);
 }
 
 TypeInstance const& Enviroment::getTypeAlias(std::string_view name) const
@@ -96,24 +78,26 @@ bool Enviroment::isTypeAlias(std::string_view name) const
 	return searchTypeAliases(name) != nullptr;
 }
 
-Enviroment::VarInfo const* Enviroment::searchVariables(std::string_view name) const
+gen::Variable const* Enviroment::searchVariables(std::string_view targetName) const
 {
 	// You're more likely to use variables in the immideate scope
-	for (auto mapping = variables.rbegin(); mapping != variables.rend(); mapping++)
+	for (auto& [name, variable] : variables)
 	{
-		if (auto it = mapping->find(name); it != mapping->end()) {
-			return &(it->second);
+		if (targetName == name) 
+		{
+			return &variable;
 		}
 	}
 	return nullptr;
 }
 
-TypeInstance const* Enviroment::searchTypeAliases(std::string_view name) const
+TypeInstance const* Enviroment::searchTypeAliases(std::string_view targetName) const
 {
-	for (auto mapping = typeAliases.rbegin(); mapping != typeAliases.rend(); mapping++)
+	for (auto& [name, type] : typeAliases)
 	{
-		if (auto it = mapping->find(name); it != mapping->end()) {
-			return &(it->second);
+		if (targetName == name)
+		{
+			return &type;
 		}
 	}
 	return nullptr;
