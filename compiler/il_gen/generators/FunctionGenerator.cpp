@@ -4,10 +4,9 @@
 #include "VectorUtil.h"
 #include "VariantUtil.h"
 #include "ExprGenerator.h"
-#include "CtrlFlowGraphFlattener.h"
 
 FunctionGenerator::FunctionGenerator(Enviroment& env)
-	: env(env)
+	: gen::Generator(env), env(env)
 {
 }
 
@@ -45,12 +44,12 @@ IL::Function::Signature FunctionGenerator::createFunctionSignature(
 	signature.params = util::transform_vector(params, [&](Stmt::VarDecl const& decl) {
 		compiledParamTypes.push_back(env.instantiateType(decl.type));
 		IL::Variable var = env.createVariable(decl.name, compiledParamTypes.back());
-		TypeInstance type = env.getILAliasType(var);
+		IL::Type type = env.getILAliasType(var);
 		return IL::Decl(var, type);
 	});
 	// sort the parameters such that pointers come at the end
 	std::sort(signature.params.begin(), signature.params.end(), [](auto& lhs, auto& rhs) {
-		return (lhs == IL::Type::u8_ptr) < (lhs == IL::Type::u8_ptr);
+		return (lhs.type == IL::Type::u8_ptr) < (rhs.type == IL::Type::u8_ptr);
 	});
 	auto compiledReturnType = env.types.compileType(instantiatedReturnType);
 	if (compiledReturnType != IL::Type::u8_ptr) {
@@ -104,29 +103,27 @@ void FunctionGenerator::visit(Stmt::Label& label) {}
 
 void FunctionGenerator::visit(Stmt::VarDef& varDef)
 {
-	IL::Program output;
+	IL::Program instructions;
 
 	std::visit(util::OverloadVariant
 	{
 	[&](Stmt::VarDecl const& decl) 
 	{
 		TypeInstance type = env.instantiateType(decl.type);
-		IL::Variable ilVar = env.createVariable(decl.name, type);
+		gen::Variable lhs = allocateVariable(instructions, type);
 		IL::Type ilType = env.getILAliasType(ilVar);
-		if (ilType == IL::Type::u8_ptr) {
-			output.push_back(IL::makeIL<IL::Allocate>(ilVar, env.getVariableType(decl.name).type->size));
-		}
+
 		if (varDef.initializer.has_value()) 
 		{
 			auto exprResult = ExprGenerator::typedContext(env, type.type)
-											.generateWithCast(varDef.initializer.value(), ilType);
+											.generateWithCast(varDef.initializer.value(), type);
 			util::vector_append(output, std::move(exprResult.instructions));
 			output.push_back(IL::makeIL<IL::Assignment>(
 				ilVar, ilType, exprResult.output
 			));
 		}
 	},
-	[&](Stmt::TypeDecl const&)
+	[&](Stmt::TypeDecl const& decl)
 	{
 		if (!varDef.initializer.has_value()) {
 			throw SemanticError(varDef.sourcePos, "Type Alias must have an initializer");
@@ -140,7 +137,9 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 
 void FunctionGenerator::visit(Stmt::Assign& assign)
 {
-	ILExprProduct lhs = ExprGenerator::defaultContext(env).generate(assign.lhs);
+	/*
+	ILExprResult lhs = ExprGenerator::defaultContext(env).generate(assign.lhs);
+
 	if (!lhs.producesObjectRef()) {
 		throw SemanticError(assign.sourcePos, "Left hand side does not produce a l-value to assign to.");
 	}
@@ -148,7 +147,7 @@ void FunctionGenerator::visit(Stmt::Assign& assign)
 	IL::Type ilType = env.types.compileType(refType.type);
 	if (!refType.isMut) {
 		throw SemanticError(assign.sourcePos, "Unable to assign a value to a non-mutable reference.");
-	}
+	}*/
 }
 
 void FunctionGenerator::visit(Stmt::ExprStmt& exprStmt)

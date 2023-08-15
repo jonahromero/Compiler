@@ -1,6 +1,7 @@
 
 #pragma once
 #include "Stmt.h"
+#include "CompilerError.h"
 
 class Type 
 {
@@ -70,7 +71,7 @@ struct PrimitiveType final : TypeWithId<PrimitiveType>
 {
 	enum class SubType { bool_, u8, i8, u16, i16 } subtype;
 	PrimitiveType(SubType subtype, std::string name, size_t size)
-		: subtype(subtype), name(std::move(name)), size(size) {}
+		: TypeWithId<PrimitiveType>(std::move(name), size), subtype(subtype) {}
 
 	bool isUnsigned() const 
 	{
@@ -107,15 +108,15 @@ struct PrimitiveType final : TypeWithId<PrimitiveType>
 struct ArrayType final : TypeWithId<ArrayType>
 {
 	ArrayType(std::string name, size_t size, TypeInstance elementType, std::vector<size_t> indexing)
-		: TypeWithId<FunctionType>(std::move(name), size), elementType(std::move(elementType)), indexing(std::move(indexing)) {}
+		: TypeWithId<ArrayType>(std::move(name), size), elementType(std::move(elementType)), indexing(std::move(indexing)) {}
 
 	TypeInstance elementType;
-	std::vector<size_t> indexing
+	std::vector<size_t> indexing;
 };
 
 struct NoneType final : TypeWithId<NoneType>
 {
-	using TypeWithId<PrimitiveType>::TypeWithId;
+	using TypeWithId<NoneType>::TypeWithId;
 };
 
 //templates 

@@ -49,6 +49,9 @@ private:
 	virtual void visit(Expr::Binary& expr) override;
 	virtual void visit(Expr::Unary& expr) override;
 	//Primary expressions
+	virtual void visit(Expr::KeyworkFunctionCall& expr) override {}
+	virtual void visit(Expr::FunctionType& expr) override {}
+	virtual void visit(Expr::Cast& expr) override {}
 	virtual void visit(Expr::StructLiteral& expr) override;
 	virtual void visit(Expr::ListLiteral& expr) override;
 	virtual void visit(Expr::Reference& expr) override {}

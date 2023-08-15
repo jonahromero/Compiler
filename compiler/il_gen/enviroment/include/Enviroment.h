@@ -5,6 +5,7 @@
 #include "ArrayMap.h"
 #include "TypeSystem.h"
 #include "VariableCreator.h"
+#include "Generator.h"
 #include "IL.h"
 
 class Enviroment 
@@ -16,13 +17,13 @@ public:
 	void endScope();
 
 	// variables
-	IL::Variable createVariable(std::string_view name, TypeInstance type, IL::ReferenceType refType);
+	IL::Variable createVariable(std::string_view name, TypeInstance type, gen::ReferenceType refType);
 	IL::Variable createAnonymousVariable(IL::Type ilType);
 
 	// named variables
 	bool isValidVariable(std::string_view name) const;
 	IL::Variable const& getVariableILAlias(std::string_view name) const;
-	IL::ReferenceType getVariableReferenceType(std::string_view name) const;
+	gen::ReferenceType getVariableReferenceType(std::string_view name) const;
 	TypeInstance const& getVariableType(std::string_view name) const;
 	
 	// anonymous variables
@@ -42,7 +43,7 @@ private:
 	{
 		TypeInstance type;
 		IL::Variable ilAlias;
-		IL::ReferenceType refType;
+		gen::ReferenceType refType;
 	};
 
 	VarInfo const* searchVariables(std::string_view name) const;

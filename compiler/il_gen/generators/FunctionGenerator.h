@@ -9,6 +9,7 @@
 #include "VectorUtil.h"
 #include "ExprStmtVisitor.h"
 #include "CtrlFlowGraph.h"
+#include "Generator.h"
 
 /*Will eventually support lang features*/
 /* Error Handling:
@@ -20,7 +21,8 @@
 */
 
 class FunctionGenerator :
-	public Stmt::VisitorReturner<IL::Program>
+	public Stmt::VisitorReturner<IL::Program>,
+	public gen::Generator
 {
 public:
 	FunctionGenerator(Enviroment& env);

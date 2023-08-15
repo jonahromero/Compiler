@@ -5,6 +5,7 @@
 #include "StmtPrinter.h"
 #include "spdlog/fmt/fmt.h"
 #include <iostream>
+#include "VariantUtil.h"
 #include "StringUtil.h"
 
 namespace IL
@@ -33,12 +34,12 @@ namespace IL
 		//Primary expressions
 		virtual void visit(Function& func) override {
 			std::string paramString;
-			for (auto& param : func.params) {
+			for (auto& param : func.signature.params) {
 				paramString.append(fmt::format("{} {},", variableToString(param.variable), ilTypeToString(param.type)));
 			}
 			if (!paramString.empty()) paramString.pop_back();
 			prettyPrint("{}fn {}({}) -> {} {{", func.isExported ? "export " : "",
-				func.name, paramString, ilTypeToString(func.returnType)
+				func.name, paramString, ilTypeToString(func.signature.returnType)
 			);
 			indentCallback([&]() {
 				for (auto& stmt : func.body) {
@@ -66,8 +67,22 @@ namespace IL
 		virtual void visit(Jump& jump) override {
 			prettyPrint("jump label {}", jump.target.name);
 		}
-		virtual void visit(FunctionCall& call) override {
-			prettyPrint("call {}", call.name);
+		virtual void visit(FunctionCall& call) override 
+		{
+			auto arguments = util::joinVector(", ", util::transform_vector(call.args, [&](Value const& val) {
+				return valueToString(val);
+			}));
+			std::string name = std::visit(util::OverloadVariant{
+				[](std::string_view name) {
+					return std::string{name};
+				},
+				[&](Variable const& var) {
+					return variableToString(var);
+				}
+			}, call.function);
+			prettyPrint("{} {} = call {}({})", 
+						variableToString(call.dest.variable), 
+						ilTypeToString(call.dest.type), name, arguments);
 		}
 		virtual void visit(Label& label) override {
 			prettyPrint("Label {}", label.name);
@@ -78,8 +93,14 @@ namespace IL
 		virtual void visit(Allocate& allocation) override {
 			prettyPrint("{} u8* = alloc({})", variableToString(allocation.dest), std::to_string(allocation.size));
 		}
+		virtual void visit(AddressOf& addressOf) override {
+			prettyPrint("{} u8* = &{}", variableToString(addressOf.ptr), variableToString(addressOf.target));
+		}
 		virtual void visit(Deref& deref) override {
 			prettyPrint("{} {} = deref({})", variableToString(deref.dest.variable), ilTypeToString(deref.dest.type), variableToString(deref.ptr));
+		}
+		virtual void visit(Store& store) override {
+			prettyPrint("*{} = {} {}", variableToString(store.ptr), variableToString(store.src.variable), ilTypeToString(store.src.type));
 		}
 		virtual void visit(MemCopy& copy) override {
 			prettyPrint("memcpy({}, {}, {})", variableToString(copy.dest), variableToString(copy.src), std::to_string(copy.length));

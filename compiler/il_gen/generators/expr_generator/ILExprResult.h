@@ -3,50 +3,32 @@
 #include "Enviroment.h"
 #include "VariableCreator.h"
 #include "VectorUtil.h"
-
-namespace gen 
-{
-	enum class ReferenceType 
-	{
-		VALUE, POINTER, DOUBLE_POINTER
-	};
-
-	class Variable
-	{
-	public:
-		IL::Variable ilName;
-		ReferenceType refType;
-	};
-}
+#include "Generator.h"
 
 struct ILExprResult
 {
 	IL::Program instructions;
-	const IL::Variable output;
-	const TypeInstance type;
+	gen::Variable output;
+	TypeInstance type;
 
-	IL::ReferenceType getReferenceType() const 
+	gen::ReferenceType getReferenceType() const 
 	{
-		return m_referenceType.value();
+		return output.refType;
 	}
 
-	bool isReferenceType() const 
-	{
-		return m_referenceType.has_value();
-	}
-
-	bool isNamed() const { return name.has_value(); }
-	std::string_view getName() const { return name.value(); }
+	bool isTemporary() const { return m_temporary; }
+	bool isNamed() const { return m_name.has_value(); }
+	std::string_view getName() const { return m_name.value(); }
 
 private:
 	friend class ILExprResultBuilderInstruction;
 	friend class ILExprResultBuilderExprType;
 
-	ILExprResult(IL::Variable output, TypeInstance type)
-		: output(std::move(output)), outputType(std::move(type)) {}
+	ILExprResult(gen::Variable output, TypeInstance type)
+		: output(std::move(output)), type(std::move(type)) {}
 
-	std::optional<IL::ReferenceType> m_referenceType;
 	std::optional<std::string_view> m_name;
+	bool m_temporary;
 };
 
 // The following expresses a builder pattern using a series of classes
@@ -71,7 +53,8 @@ public:
 		util::vector_append(result.instructions, std::move(instructions));
 		return *this;
 	}
-	ILExprResult build() { return std::move(result); }
+	ILExprResult buildAsPersistent() { result.m_temporary = false; return std::move(result); }
+	ILExprResult buildAsTemporary() { result.m_temporary = true; return std::move(result); }
 
 private:
 	friend class ILExprResultBuilderExprType;
@@ -87,13 +70,12 @@ public:
 	{
 		ILExprResult result{variable, type};
 		result.m_name = std::move(m_name);
-		result.m_referenceType = std::move(m_referenceType);
 		return ILExprResultBuilderInstruction{ std::move(result) };
 	}
 protected:
-	std::optional<IL::ReferenceType> m_referenceType;
+	gen::ReferenceType m_referenceType;
 	std::optional<std::string_view> m_name;
-	IL::Variable variable;
+	gen::Variable variable;
 };
 
 class ILExprResultBuilderOutput : protected ILExprResultBuilderExprType
@@ -101,7 +83,7 @@ class ILExprResultBuilderOutput : protected ILExprResultBuilderExprType
 public:
 	ILExprResultBuilderExprType& withOutputAt(IL::Variable variable)
 	{
-		this->variable = variable;
+		this->variable.ilName = variable;
 		return *this;
 	}
 };
@@ -109,20 +91,15 @@ public:
 struct ILExprResultBuilder : protected ILExprResultBuilderOutput
 {
 public:
-	ILExprResultBuilderOutput& createValue()
+	ILExprResultBuilderOutput& createNamedReference(std::string_view name, gen::ReferenceType refType)
 	{
+		variable.refType = refType;
+		m_name = name;
 		return *this;
 	}
 
-	ILExprResultBuilderOutput& createNamedReference(std::string_view name, IL::ReferenceType refType)
-	{
-		result.m_referenceType = refType;
-		result.m_name = name;
-		return *this;
-	}
-
-	ILExprResultBuilderOutput& createUnnamedReference(IL::ReferenceType refType) {
-		result.m_referenceType = refType;
+	ILExprResultBuilderOutput& createUnnamedReference(gen::ReferenceType refType) {
+		variable.refType = refType;
 		return *this;
 	}
 };

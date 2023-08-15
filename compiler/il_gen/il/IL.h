@@ -44,16 +44,11 @@ namespace IL
 		Type type;
 	};
 
-	enum class ReferenceType 
-	{
-		VALUE, POINTER, DOUBLE_POINTER
-	};
-
 	class IL
 		: public visit::VisitableBase<IL,
 		struct Function, struct Binary, struct Unary, struct Phi, struct Return, struct Assignment,
 		struct Instruction, struct Jump, struct FunctionCall, struct Label, struct Test, struct Cast, 
-		struct Allocate, struct Deref, struct MemCopy>
+		struct Allocate, struct Deref, struct Store, struct MemCopy, struct AddressOf>
 	{
 	public:
 	};
@@ -99,6 +94,7 @@ namespace IL
 			std::vector<Decl> params;
 			Type returnType;
 		};
+
 		Function(std::string_view name, Signature signature, bool isExported, ILBody body)
 			: name(name), signature(std::move(signature)), isExported(isExported), body(std::move(body)) {}
 		
@@ -167,9 +163,10 @@ namespace IL
 	struct FunctionCall : IL::Visitable<FunctionCall> 
 	{
 		using Callable = std::variant<std::string_view, Variable>;
-		FunctionCall(Callable function, std::vector<Value> args)
-			: function(function), args(args) {}
+		FunctionCall(Decl dest, Callable function, std::vector<Value> args)
+			: dest(dest), function(function), args(args) {}
 
+		Decl dest;
 		Callable function;
 		std::vector<Value> args;
 	};
@@ -199,6 +196,14 @@ namespace IL
 		size_t size;
 	};
 
+	struct AddressOf : IL::Visitable<AddressOf>
+	{
+		AddressOf(Variable ptr, Variable target) 
+			: ptr(ptr), target(target) {}
+
+		Variable ptr, target;
+	};
+
 	struct Deref : IL::Visitable<Deref> 
 	{
 		Deref(Variable dest, Type type, Variable ptr) 
@@ -206,6 +211,15 @@ namespace IL
 		
 		Decl dest;
 		Variable ptr;
+	};
+
+	struct Store : IL::Visitable<Store>
+	{
+		Store(Variable ptr, Variable src, Type type)
+			: ptr(ptr), src(src, type) {}
+
+		Variable ptr;
+		Decl src;
 	};
 
 	struct MemCopy : IL::Visitable<MemCopy> 

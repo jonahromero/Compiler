@@ -10,4 +10,10 @@ target_include_directories(il_gen_generators
 	PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
 	PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-target_link_libraries(il_gen_generators PUBLIC il expr_generator il_gen_enviroment)
+target_link_libraries(il_gen_generators PUBLIC 
+	il 
+	generator
+	expr_generator 
+	il_gen_enviroment 
+	il_gen_ctrl_flow_graph
+)

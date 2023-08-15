@@ -1,16 +1,18 @@
 #pragma once
 #include "Stmt.h"
 #include "ILExprResult.h"
+#include "Generator.h"
 
 
 class ExprGenerator :
-	public Expr::VisitorReturner<ILExprResult>
+	public Expr::VisitorReturner<ILExprResult>,
+	public gen::Generator
 {
 public:
 	static ExprGenerator defaultContext(Enviroment& env);
-	static ExprGenerator typedContext(Enviroment& env, IL::Type type);
+	static ExprGenerator typedContext(Enviroment& env, TypePtr type);
 	ILExprResult generate(Expr::UniquePtr& expr);
-	ILExprResult generateWithCast(Expr::UniquePtr& expr, IL::Type outputType);
+	ILExprResult generateWithCast(Expr::UniquePtr& expr, TypeInstance outputType);
 
 private:
 	ExprGenerator(Enviroment& env, TypePtr arithmeticType);
@@ -22,18 +24,6 @@ private:
 	static bool isLogicalOperator(Token::Type oper);
 	static bool isRelationalOperator(Token::Type oper);
 	static bool isArithmeticOperator(Token::Type oper);
-	static bool isPrimitiveType(TypePtr type);
-
-	IL::Type getReferenceTypeImplementation(gen::ReferenceType refType, size_t size);
-	gen::Variable allocateVariable(IL::Program& instructions, TypeInstance type);
-	// Helpers
-	IL::Variable simpleAllocate(IL::Program& instrs, size_t size);
-	IL::Variable simpleDeref(IL::Program& instrs, IL::Type type, IL::Variable ptr);
-	IL::Variable addToPointer(IL::Program& instrs, IL::Variable ptr, int offset);
-	IL::Variable castVariable(IL::Program& instrs, IL::Type type, IL::Variable var);
-	IL::Variable derefVariable(IL::Program& instrs, IL::Variable var, IL::ReferenceType refType, PrimitiveType const* refType, bool isOpt);
-	
-	IL::Variable createNewILVariable(IL::Type type) const;
 	
 	void assertValidFunctionArgType(SourcePosition pos, TypeInstance param, TypeInstance arg) const;
 	void assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const;

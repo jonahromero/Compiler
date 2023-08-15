@@ -34,14 +34,14 @@ public:
 		prettyPrint("{{expr}} as {{type}}");
 		indentCallback([&]() {	
 			printExpr(expr.expr); 
-			printExpr(expr.type)
+			printExpr(expr.type);
 		});
 	}
 	virtual void visit(FunctionType& expr) override {
 		prettyPrint("Function Type: {{return type}}({{1st}}, {{2nd}}, ... {{nth}})");
 		indentCallback([&]() {
 			printExpr(expr.returnType);
-			for (auto param : expr.paramTypes) {
+			for (auto& param : expr.paramTypes) {
 				printExpr(param);
 			}
 		});
@@ -50,7 +50,7 @@ public:
 	{
 		prettyPrint("{}({{1st}}, {{2nd}}, ... {{nth}})", tokenTypeToStr(expr.function));
 		indentCallback([&]() {
-			for (auto param : expr.args) {
+			for (auto& param : expr.args) {
 				printExpr(param);
 			}
 		});

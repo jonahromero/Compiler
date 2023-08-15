@@ -48,7 +48,7 @@ void ILGenerator::visit(Stmt::Function& func)
 	else {
 		auto body = FunctionGenerator{ env }.generate(std::move(func));
 		std::vector<IL::UniquePtr> stmts;
-		stmts.push_back(IL::makeIL<IL::Function>(func.name, std::vector<IL::Decl>{}, IL::Type::i1, false, std::move(body)));
+		stmts.push_back(IL::makeIL<IL::Function>(std::move(body)));
 		returnForStmt(std::move(stmts));
 	}
 }

@@ -19,13 +19,13 @@
 #include "VariantUtil.h"
 
 ExprGenerator::ExprGenerator(Enviroment& env, TypePtr typeContext)
-	: env(env), typeContext(typeContext)
+	: env(env), typeContext(typeContext), gen::Generator(env)
 {
 }
 
 ExprGenerator ExprGenerator::defaultContext(Enviroment& env)
 {
-	return ExprGenerator(env, env.types.getPrimitiveType(PrimitiveType::SubType::i16));
+	return ExprGenerator(env, &env.types.getPrimitiveType(PrimitiveType::SubType::i16));
 }
 
 ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
@@ -33,77 +33,18 @@ ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
 	return ExprGenerator(env, type);
 }
 
-ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr& expr, IL::Type outputType)
+ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr& expr, TypeInstance outputType)
 {
 	ILExprResult result = visitChild(expr);
-	
-	if (result.producesObjectRef()) 
-	{
-		result.output = derefVariable(result.instructions, expr->sourcePos, result.output, result.getResultingRefType().type);
-	}
-	result.output = castVariable(result.instructions, expr->sourcePos, outputType, result.output);
+	assertIsAssignableType(expr->sourcePos, result.type, outputType);
+	castVariable(result.instructions, result.output, result.type, outputType);
+	result.type = outputType;
 	return result;
 }
 
 ILExprResult ExprGenerator::generate(Expr::UniquePtr& expr)
 {
 	return visitChild(expr);
-}
-
-IL::Variable ExprGenerator::simpleAllocate(IL::Program& instructions, size_t size)
-{
-	IL::Variable result = createNewILVariable(IL::Type::u8_ptr);
-	instructions.push_back(IL::makeIL<IL::Allocate>(result, int(size)));
-	return result;
-}
-
-IL::Variable ExprGenerator::simpleDeref(IL::Program& instrs, IL::Type type, IL::Variable ptr)
-{
-	COMPILER_ASSERT("Cannot dereference a non-pointer type", env.getILAliasType(var) == IL::Type::u8_ptr);
-	IL::Variable result;
-	instrs.push_back(IL::makeIL<IL::Deref>(result, rtpe, ptr));
-	return result;
-}
-
-IL::Variable ExprGenerator::derefVariable(
-	IL::Program& instructions,
-	IL::Variable ptr,
-	IL::ReferenceType refType,
-	PrimitiveType const* derefType,
-	bool isOpt)
-{
-	COMPILER_ASSERT("Cannot dereference a value reference type", refType != IL::ReferenceType::VALUE);
-	if (refType == IL::ReferenceType::DOUBLE_POINTER) {
-		ptr = simpleDeref(instructions, IL::Type::u8_ptr, ptr);
-	}
-	if (isOpt)
-	{
-		ptr = addToPointer(instructions, ptr, 1);
-	}
-	IL::Type instantiatedType = env.types.compileType(TypeInstance(derefType));
-	return simpleDeref(instantiatedType, ptr);
-}
-
-IL::Variable ExprGenerator::addToPointer(IL::Program& instructions, IL::Variable ptr, int offset)
-{
-	IL::Variable lhs = ptr, rhs = env.createAnonymousVariable(IL::Type::u16);
-	IL::Variable result = env.createAnonymousVariable();
-	instructions.push_back(IL::makeIL<IL::Assignment>(rhs, IL::Type::u16, offset));
-	instructions.push_back(IL::makeIL<IL::Binary>(var, IL::Type::u8_ptr, lhs, Token::Type::PLUS, rhs));
-	return result;
-}
-
-IL::Variable ExprGenerator::castVariable(IL::Program& instrs, IL::Type newType, IL::Variable var)
-{
-	if (env.getILAliasType(var) == newType) return var;
-	auto castedVariable = env.createAnonymousVariable(newType);
-	instrs.emplace_back(IL::makeIL<IL::Cast>(castedVariable, newType, var));
-	return castedVariable;
-}
-
-IL::Variable ExprGenerator::createNewILVariable(IL::Type type) const
-{
-	return env.createAnonymousVariable(type);
 }
 
 PrimitiveType const& ExprGenerator::expectPrimitive(SourcePosition const& pos, TypeInstance const& type)
@@ -115,8 +56,10 @@ PrimitiveType const& ExprGenerator::expectPrimitive(SourcePosition const& pos, T
 	auto primitiveType = type.type->getExactType<PrimitiveType>();
 	if ( !primitiveType)
 	{
-		const char* msg = "Expected a primitive type, but found the following instead: {}";
-		throw SemanticError(fmt::format(msg, type.type->name));
+		throw SemanticError(pos, fmt::format(
+							"Expected a primitive type, "
+							"but found the following instead: {}",
+							type.type->name));
 	}
 	return *primitiveType;
 }
@@ -130,8 +73,10 @@ FunctionType const& ExprGenerator::expectCallable(SourcePosition const& pos, Typ
 	auto functionType = type.type->getExactType<FunctionType>();
 	if (!functionType)
 	{
-		const char* msg = "Expected a callable type, but found the following instead: {}";
-		throw SemanticError(fmt::format(msg, type.type->name));
+		throw SemanticError(pos, fmt::format(
+							"Expected a callable type, "
+							"but found the following instead: {}", 
+							type.type->name));
 	}
 	return *functionType;
 }
@@ -140,13 +85,13 @@ BinType::Field const& ExprGenerator::expectMember(SourcePosition const& pos, Typ
 {
 	auto* bin = type.type->getExactType<BinType>();
 	if (!bin) {
-		throw SemanticError(expr.sourcePos, fmt::format("Cannot perform member access on the following type: {}", type.type->name));
+		throw SemanticError(pos, fmt::format("Cannot perform member access on the following type: {}", type.type->name));
 	}
 	auto it = std::find_if(bin->members.begin(), bin->members.end(), [member](auto& field) {
 		return member == field.name;
 	});
 	if (it == bin->members.end()) {
-		throw SemanticError(expr.sourcePos, fmt::format("No member \"{}\" exists in the type: {}", expr.member, bin->name));
+		throw SemanticError(pos, fmt::format("No member \"{}\" exists in the type: {}", member, bin->name));
 	}
 	return *it;
 }
@@ -156,8 +101,8 @@ void ExprGenerator::assertValidFunctionArgType(SourcePosition pos, TypeInstance 
 {
 	if (param.type != arg.type) {
 		throw SemanticError(pos, fmt::format("Passed in an argument of: {}, however, "
-											 "the function expected an argument of type: {}"), 
-											 param.type->name, arg.type->name);
+											 "the function expected an argument of type: {}", 
+											 param.type->name, arg.type->name));
 	}
 	if (param.isRef && !arg.isRef) {
 		throw SemanticError(pos, "Argument passed is not a reference type");
@@ -166,25 +111,25 @@ void ExprGenerator::assertValidFunctionArgType(SourcePosition pos, TypeInstance 
 
 void ExprGenerator::assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const
 {
-	if (param.type != arg.type) 
+	if (dest.type != src.type) 
 	{
 		throw SemanticError(pos, fmt::format("Cannot initialize an expression of type: {}, when "
-											 "an argument of type: {}, is expected."),
-											 dest.type->name, src.type->name);
+											 "an argument of type: {}, is expected.",
+											 dest.type->name, src.type->name));
 	}
 }
 
 void ExprGenerator::assertCorrectFunctionCall(SourcePosition pos, std::vector<TypeInstance> const& params, std::vector<TypeInstance> const& args)
 {
-	if (params.size() != arguments.size()) {
+	if (params.size() != args.size()) {
 		throw SemanticError(pos,
 			fmt::format("Function expected {} arguments, however, it recieved {} instead.",
-				params.size(), arguments.size()
+				params.size(), args.size()
 			));
 	}
 	for (size_t i = 0; i < params.size(); i++) 
 	{
-		assertValidFunctionArgType(sourcePos, params[i], args[i]);
+		assertValidFunctionArgType(pos, params[i], args[i]);
 	}
 }
 
@@ -206,7 +151,7 @@ ExprGenerator::determineBinaryOperandCasts(SourcePosition const& pos,
 	using enum PrimitiveType::SubType;
 	if (isLogicalOperator(oper))
 	{
-		return env.types.getPrimitiveType(bool_);
+		return *env.types.getPrimitiveType(bool_);
 	}
 	else if (lhs.subtype == bool_) { return rhs; }
 	else if (rhs.subtype == bool_) { return lhs; }
@@ -218,7 +163,7 @@ ExprGenerator::determineBinaryOperandCasts(SourcePosition const& pos,
 		}
 		else if (!lhs.isLargestType())
 		{
-			return env.types.getPrimitiveType(lhs.getPromotedSubType());
+			return *env.types.getPrimitiveType(lhs.getPromotedSubType());
 		}
 		else
 		{
@@ -246,27 +191,27 @@ void ExprGenerator::visit(Expr::Binary& expr)
 	auto& lhsType	 = expectPrimitive(expr.lhs->sourcePos, lhs.type);
 	auto& rhsType	 = expectPrimitive(expr.rhs->sourcePos, rhs.type);
 	auto& castType	 = determineBinaryOperandCasts(lhsType, expr.oper, rhsType);
-	auto& returnType = isLogicalOperator(expr.oper) || isRelationalOperator(expr.oper) ?
-						env.types.getPrimitiveType(PrimitiveType::SubType::bool_) : castType;
+	auto& returnType = TypeInstance(&(isLogicalOperator(expr.oper) || isRelationalOperator(expr.oper) ?
+						env.types.getPrimitiveType(PrimitiveType::SubType::bool_) : castType));
 
-	if (lhs.isReferenceType() && lhs.getReferenceType() != IL::ReferenceType::VALUE) 
-		derefVariable(instructions, lhs.output, lhs.getReferenceType(), lhsType, lhs.type.isOpt);
-	if (rhs.isReferenceType() && rhs.getReferenceType() != IL::ReferenceType::VALUE)
-		derefVariable(instructions, rhs.output, rhs.getReferenceType(), rhsType, rhs.type.isOpt);
+	if (canDereferenceValue(lhs.output, lhs.type))
+		lhs.output = derefVariable(instructions, lhs.output, lhs.type);
+	if (canDereferenceValue(rhs.output, rhs.type))
+		rhs.output = derefVariable(instructions, rhs.output, rhs.type);
 
-	lhs.output = castVariable(instructions, env.types.compileType(TypeInstance(&castType)), lhs.output);
-	rhs.output = castVariable(instructions, env.types.compileType(TypeInstance(&castType)), rhs.output);
+	lhs.output = castVariable(instructions, lhs.output, lhs.type, TypeInstance(&castType));
+	rhs.output = castVariable(instructions, rhs.output, rhs.type, TypeInstance(&castType));
 
-	IL::Type ilReturnType = env.types.compileType(TypeInstance(&returnType));
-	IL::Variable binaryOutput = createNewILVariable(ilReturnType);
+	gen::Variable out = allocateVariable(instructions, TypeInstance(&returnType));
+	IL::Type ilReturnType = env.getILAliasType(out.ilName);
 
-	returnValue(ILExprResultBuilder{}.createTemporary()
-									 .withOutputAt(binaryOutput).withExprType(exprType)
+	returnValue(ILExprResultBuilder{}.createUnnamedReference(out.refType)
+									 .withOutputAt(out.ilName).withExprType(TypeInstance(&returnType))
 									 .andInstructions(std::move(instructions))
 									 .andInstruction<IL::Binary>(
-										 binaryOutput, ilReturnType,
+										 out.ilName, ilReturnType,
 										 lhs.output, expr.oper, rhs.output
-									 ).build());
+									 ).buildAsTemporary());
 }
 
 void ExprGenerator::visit(Expr::Unary& expr)
@@ -282,16 +227,17 @@ void ExprGenerator::visit(Expr::Unary& expr)
 		retType = env.types.getPrimitiveType(PrimitiveType::SubType::bool_);
 		rhs.output = castVariable(instructions, IL::Type::i1, rhs.output);
 	}
+	gen::Variable out = allocateVariable(instructions, TypeInstance(&retType));
+	IL::Type ilReturnType = env.getILAliasType(out.ilName);
 
-	IL::Type ilReturnType = env.types.compileType(TypeInstance(&rhsType));
-	IL::Variable unaryOutput = env.createAnonymousVariable(ilReturnType);
-	returnValue(ILExprResultBuilder{}.createTemporary()
-									 .withOutputAt(unaryOutput).withExprType(TypeInstance(&rhsType))
-									 .andInstructions(std::move(instructions))
-									 .andInstruction<IL::Unary>(
-										 unaryOutput, ilReturnType,
-									 	 expr.oper, rhs.output
-									 ).build());
+	returnValue(ILExprResultBuilder{}
+		.createUnnamedReference(out.refType)
+		.withOutputAt(out.ilName).withExprType(TypeInstance(&retType))
+		.andInstructions(std::move(instructions))
+		.andInstruction<IL::Unary>(
+			out.ilName, ilReturnType,
+			expr.oper, rhs.output)
+		.buildAsTemporary());
 }
 
 void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
@@ -307,13 +253,19 @@ void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
 	{
 	case Token::Type::SIZEOF: 
 	{
-		size_t typeSize = env.types.calculateTypeSize(argument.type);
-		IL::Type ilReturnType = IL::Type::u16;
-		IL::Variable sizeOutput = createNewILVariable(ilReturnType);
-		returnValue(ILExprResultBuilder{}.createTemporary()
-			.withOutputAt(sizeOutput)
-			.withExprType(env.types.getPrimitiveType(PrimitiveType::SubType::u16))
-			.andInstruction<IL::Assignment>(sizeOutput, ilReturnType, int(typeSize)));
+		IL::Instruction instructions;
+		TypeInstance exprType = env.types.getPrimitiveType(PrimitiveType::SubType::u16);
+		size_t typeSize = calculateTypeSizeBytes(argument.type);
+		gen::Variable out = allocateVariable(instructions, exprType);
+		IL::Type ilReturnType = env.getILAliasType(result.ilName);
+
+		returnValue(ILExprResultBuilder{}
+			.createUnnamedReference(out.refType)
+			.withOutputAt(out.ilName)
+			.withExprType(exprType)
+			.andInstructions(std::move(instructions))
+			.andInstruction<IL::Assignment>(out.ilName, ilReturnType, int(typeSize))
+			.buildAsTemporary());
 		break;
 	}
 	case Token::Type::DEREF:
@@ -335,7 +287,7 @@ void ExprGenerator::visit(Expr::Identifier& expr)
 			.createNamedReference(expr.ident, env.getVariableReferenceType(expr.ident))
 			.withOutputAt(env.getVariableILAlias(expr.ident))
 			.withExprType(env.getVariableType(expr.ident))
-			.build());
+			.buildAsPersistent());
 	}
 	else {
 		throw SemanticError(expr.sourcePos, util::strBuilder("Use of unknown variable: ", expr.ident));
@@ -348,14 +300,17 @@ void ExprGenerator::visit(Expr::Literal& expr)
 	{
 	[&](u16 const& value) 
 	{
-		auto ilReturnType = env.types.compileType(typeContext);
-		auto output = createNewILVariable(ilReturnType);
+		IL::ILBody instructions;
+		gen::Variable out = allocateVariable(instructions, typeContext);
+		IL::Type ilReturnType = env.getILAliasType(out.ilName);
+
 		returnValue(ILExprResultBuilder{}
-			.createTemporary()
-			.withOutputAt(output)
+			.createUnnamedReference(out.refType)
+			.withOutputAt(out.ilName)
 			.withExprType(typeContext)
-			.andInstruction<IL::Assignment>(output, ilReturnType, std::move(value))
-			.build());
+			.andInstructions(std::move(instructions))
+			.andInstruction<IL::Assignment>(out.ilName, ilReturnType, std::move(value))
+			.buildAsTemporary());
 	},
 	[&](std::string const& str) { COMPILER_NOT_SUPPORTED; },
 	[&](std::monostate) { COMPILER_NOT_REACHABLE; }
@@ -365,8 +320,9 @@ void ExprGenerator::visit(Expr::Literal& expr)
 // Need to finish
 void ExprGenerator::visit(Expr::FunctionCall& expr) 
 {
+	// error handling, outputs: funcType, argResults
 	auto funcPtr = visitChild(expr.lhs);
-	FunctionType* funcType = expectCallable(funcPtr.type);
+	FunctionType const& funcType = expectCallable(funcPtr.type);
 	std::vector<TypeInstance> argumentTypes;
 	auto argResults = util::transform_vector(expr.arguments, 
 	[&](Expr::UniquePtr const& arg) {
@@ -374,21 +330,34 @@ void ExprGenerator::visit(Expr::FunctionCall& expr)
 		argumentTypes.push_back(argResult.type);
 		return argResult;
 	});
-	assertCorrectFunctionCall(expr.sourcePos, funcType->params, argumentTypes);
-
+	assertCorrectFunctionCall(expr.sourcePos, funcType.params, argumentTypes);
+	
+	// compile it
 	IL::ILBody instructions;
-	if (funcType->passesReturnType)
+	std::vector<IL::Value> arguments;
+	for (auto& arg : argResults) 
 	{
-		IL::Variable returnStorage = simpleAllocate(instructions, env.types.calculateTypeSize(funcType->returnType));
+		arguments.push_back(arg.output);
+	}
+	if (shouldPassInReturnValue(funcType))
+	{
+		size_t bufferSize = calculateTypeSizeBytes(funcType.returnType);
+		gen::Variable returnBuffer = simpleAllocate(instructions, bufferSize);
+		arguments.push_back(returnBuffer.ilName);
 	}
 	if (funcPtr.isNamed()) 
 	{
-		auto name = funcPtr.getName();
-
+		instructions.push_back(IL::makeIL<IL::FunctionCall>(funcPtr.getName(), std::move(arguments)));
 	}
-	else {
-			
+	else 
+	{
+		instructions.push_back(IL::makeIL<IL::FunctionCall>(funcPtr.output, std::move(arguments)));
 	}
+	returnValue(ILExprResultBuilder{}.createUnnamedReference()
+									 .withOutputAt()
+									 .withExprType(funcType.returnType)
+									 .andInstructions(std::move(instructions))
+									 .buildAsTemporary());
 }
 
 void ExprGenerator::visit(Expr::Indexing& expr) 
@@ -410,16 +379,30 @@ void ExprGenerator::visit(Expr::MemberAccess& expr)
 {
 	ILExprResult lhs = visitChild(expr.lhs);
 	BinType::Field const& member = expectMember(expr.sourcePos, lhs.type, expr.member);
-	if (lhs.getReferenceType() != IL::ReferenceType::POINTER) 
+	if (lhs.getReferenceType() != gen::ReferenceType::POINTER) 
 	{
 		throw SemanticError(expr.sourcePos, "Cannot perform member access on left hand side.");
 	}
-	lhs.output = addToPointer(lhs.instructions, lhs.output, int(member.offset));
-	returnValue(ILExprResultBuilder{}.createUnnamedReference(IL::ReferenceType::POINTER)
-									 .withOutputAt(result.output)
-									 .withExprType(member.type)
-									 .andInstructions(std::move(lhs.instructions))
-									 .build());
+	switch (lhs.getReferenceType())
+	{
+	case gen::ReferenceType::POINTER:
+		lhs.output = addToPointer(lhs.instructions, lhs.output, int(member.offset));
+		break;
+	case gen::ReferenceType::VALUE:
+		if (lhs.isTemporary()) 
+		{
+		
+		}
+		else 
+		{
+		
+		}
+	}
+	auto builder = ILExprResultBuilder{}.createUnnamedReference(lhs.getReferenceType())
+									    .withOutputAt(lhs.output)
+										.withExprType(member.type)
+										.andInstructions(std::move(lhs.instructions));
+	returnValue(lhs.isTemporary() ? builder.buildAsTemporary() : builder.buildAsPersistent());
 }
 
 void ExprGenerator::visit(Expr::ListLiteral& expr) 
@@ -444,49 +427,6 @@ void ExprGenerator::visit(Expr::StructLiteral& expr)
 	COMPILER_NOT_SUPPORTED;
 }
 
-bool ExprGenerator::isPrimitiveType(TypePtr type)
-{
-	return type->getExactType<PrimitiveType>();
-}
-
-IL::Type ExprGenerator::getReferenceTypeImplementation(gen::ReferenceType refType, size_t size)
-{
-	switch (refType) 
-	{
-	case gen::ReferenceType::VALUE:
-		switch ()
-		{
-		}
-		break;
-	case gen::ReferenceType::POINTER:
-		return IL::Type::u8_ptr;
-	case gen::ReferenceType::DOUBLE_POINTER:
-		return IL::Type::u8_ptr;
-	}
-}
-
-gen::Variable ExprGenerator::allocateVariable(IL::Program& instructions, TypeInstance type)
-{
-	size_t typeSize = type.type->size + (type.isOpt ? 1 : 0);
-	
-	if (type.isRef && !type.isOpt) 
-	{
-		IL::Type impl = getReferenceTypeImplementation(gen::ReferenceType::POINTER);
-		return gen::Variable
-		{
-			env.createAnonymousVariable(impl)
-			gen::ReferenceType::POINTER,
-		}
-	}
-	else if(typeSize > 2)
-	{
-		IL::Variable buffer = simpleAllocate(instructions, typeSize);
-		return gen::Variable {
-			buffer, gen::ReferenceType::POINTER
-		};
-	}
-}
-
 // This is somewhat non sensical. Nothing to compile this to.
 void ExprGenerator::visit(Expr::TemplateCall& expr) 
 {
@@ -502,7 +442,6 @@ void ExprGenerator::visit(Expr::FunctionType& expr)
 {
 	throw SemanticError(expr.sourcePos, "Found unexpected type expression.");
 }
-
 
 // These are only allowed within instructions.
 void ExprGenerator::visit(Expr::Register& expr) { COMPILER_NOT_REACHABLE;  }

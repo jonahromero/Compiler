@@ -1,5 +1,5 @@
 
-#include "CtrlFlowGraphFlattener.h"
+#include "CtrlFlowGraph.h"
 #include <set>
 
 class CtrlFlowGraphFlattener

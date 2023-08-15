@@ -22,29 +22,14 @@ bin<U : type> Rectangle:
     left : Pos<U>
     top  : Pos<U>
 
-fn is_square(rect : Rectangle<u8>) -> bool:
-    let other = deref(0x12) as (u8, bool)->(u8)->bool
-    let result = other(1, true)
-    let temp : Rectangle<u8> = [{
-        left:{1, 2}, 
-        top:{0, 1} 
-    }, 1, 2, 3, "hello"]
-    ;let list : mut u8[2][3]
-    ;list[2,3] = 3
-    let other : u8 = 4 + temp.top.y
-    ;let ref : u8& = &other
-    ;let next : u8&& = &ref
-
 fn equal_msg(var : u8) -> u8: 
     let error : u16 = 5
     let arg : mut i16 = 2 + 54 * 82 / 200
-    ;let other : bool = 2 + 40 + error;
     if 10:
         1
-    else: ;line 25
+    else:
         2 + 33
     12
-    ;return myVar
 )";
 
 int main()
@@ -108,5 +93,40 @@ end:
     inc (hl)
     djnz _loop
     ret
+
+
+;;; TOUGH EXAMPLE
+
+bin<T : type> Pos:
+    x : T
+    y : T
+
+bin<U : type> Rectangle:
+    left : Pos<U>
+    top  : Pos<U>
+
+fn is_square(rect : Rectangle<u8>) -> bool:
+    let other = deref(0x12) as (u8, bool)->(u8)->bool
+    let result = other(1, true)
+    let temp : Rectangle<u8> = [{
+        left:{1, 2},
+        top:{0, 1}
+    }, 1, 2, 3, "hello"]
+    ;let list : mut u8[2][3]
+    ;list[2,3] = 3
+    let other : u8 = 4 + temp.top.y
+    ;let ref : u8& = &other
+    ;let next : u8&& = &ref
+
+fn equal_msg(var : u8) -> u8:
+    let error : u16 = 5
+    let arg : mut i16 = 2 + 54 * 82 / 200
+    ;let other : bool = 2 + 40 + error;
+    if 10:
+        1
+    else: ;line 25
+        2 + 33
+    12
+    ;return myVar
 
 */

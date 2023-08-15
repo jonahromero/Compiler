@@ -25,7 +25,7 @@ void Enviroment::endScope()
 	ilAliasTypes.pop_back();
 }
 
-IL::Variable Enviroment::createVariable(std::string_view name, TypeInstance type, IL::ReferenceType refType)
+IL::Variable Enviroment::createVariable(std::string_view name, TypeInstance type, gen::ReferenceType refType)
 {
 	auto alias = createAnonymousVariable(types.compileType(type.type));
 	variables.back().emplace(name, VarInfo{ type, alias, refType });
@@ -54,12 +54,12 @@ TypeInstance const& Enviroment::getVariableType(std::string_view name) const
 	return searchVariables(name)->type;
 }
 
-IL::ReferenceType Enviroment::getVariableReferenceType(std::string_view name) const
+gen::ReferenceType Enviroment::getVariableReferenceType(std::string_view name) const
 {
 	return searchVariables(name)->refType;
 }
 
-IL::Type Enviroment::getILAliasType(IL::Variable variable) const
+gen::Type Enviroment::getILAliasType(IL::Variable variable) const
 {
 	return ilAliasTypes.back().at(variable);
 }
