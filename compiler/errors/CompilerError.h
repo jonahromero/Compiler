@@ -5,7 +5,7 @@
 #include "spdlog/fmt/fmt.h"
 
 #define COMPILER_NOT_SUPPORTED assert(false);
-#define COMPILER_ASSERT(msg, x) assert((x && msg))
+#define COMPILER_ASSERT(msg, x) assert((x) && (msg))
 #ifdef NDEBUG
 	#define COMPILER_DEBUG if constexpr(false)
 #else

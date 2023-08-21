@@ -5,14 +5,16 @@
 #include "TemplateReplacer.h"
 #include "StringUtil.h"
 #include "VariantUtil.h"
+#include "TargetInfo.h"
 
 TypeSystem::TypeSystem(Enviroment& env)
 	: env(env)
 {
 	using enum PrimitiveType::SubType;
-	static constexpr std::array<std::tuple<PrimitiveType::SubType, const char*, size_t>, 6> primitiveTypes = {
-		{ u16, "u16", 2 }, { i16, "i16", 2}, { u8, "u8", 1 }, { i8, "i8", 1}, { bool_, "bool", 1 }, {void_, "void", 0}
-	};
+	using tuple_t = std::tuple<PrimitiveType::SubType, const char*, size_t>;
+	static constexpr std::array<tuple_t, 6> primitiveTypes = {{
+		tuple_t{ u16, "u16", 2 }, { i16, "i16", 2}, { u8, "u8", 1 }, { i8, "i8", 1}, { bool_, "bool", 1 }, {void_, "void", 0}
+	}};
 	for (auto [subtype, name, size] : primitiveTypes)
 	{
 		addType(PrimitiveType(subtype, name, size));
@@ -43,7 +45,7 @@ TypePtr TypeSystem::addBin(std::string name, std::vector<Stmt::VarDecl> decls)
 	for (auto& varDecl : decls) 
 	{
 		BinType::Field field = compileBinDecl(varDecl, newType.size);
-		newType.size += calculateTypeSize(field.type);
+		newType.size += TargetInfo::calculateTypeSizeBytes(field.type);
 		newType.members.push_back(std::move(field));
 	}
 	return addType(std::move(newType));
@@ -53,14 +55,14 @@ TypePtr TypeSystem::addFunction(std::vector<TypeInstance> paramTypes, TypeInstan
 {
 	std::string name = createFunctionName(paramTypes, returnType);
 	return addType(FunctionType{
-		std::move(name), POINTER_SIZE,
+		std::move(name), TargetInfo::getPointerSizeBytes(),
 		std::move(paramTypes), std::move(returnType)
 	});
 }
 
 TypePtr TypeSystem::addArray(TypeInstance elementType, size_t elements)
 {
-	std::string name = fmt::format("{}[{}]", ptr->name, std::to_string(elements));
+	std::string name = fmt::format("{}[{}]", elementType.type->name, std::to_string(elements));
 	return addType(ArrayType{ name, elements, elementType, std::vector<size_t>({elements}) });
 }
 
@@ -75,7 +77,7 @@ TypePtr TypeSystem::modifyAndAddArray(ArrayType const* arrayType, size_t element
 
 TemplateBin::Parameter TypeSystem::compileTemplateDecl(Stmt::GenericDecl const& decl)
 {
-	std::visit(util::OverloadVariant
+	return std::visit(util::OverloadVariant
 	{
 		[&](Stmt::VarDecl const& varDecl)
 		{
@@ -88,15 +90,15 @@ TemplateBin::Parameter TypeSystem::compileTemplateDecl(Stmt::GenericDecl const& 
 		},
 		[&](Stmt::TypeDecl const& typeDecl)
 		{
-			return TemplateBin::Parameter{ typeDecl.name, TemplateBin::TypeParam{} };
+			return TemplateBin::Parameter{ typeDecl.name, TemplateBin::TypeParameter{} };
 		}
 	}, decl);
 }
 
 BinType::Field TypeSystem::compileBinDecl(Stmt::VarDecl const& decl, size_t offset)
 {
-	auto memType = env.instantiateType(varDecl.type);
-	return BinType::Field{ memType, varDecl.name, offset };
+	auto memType = env.instantiateType(decl.type);
+	return BinType::Field{ memType, decl.name, offset };
 }
 
 Type const* TypeSystem::searchTypes(std::string_view name) const 
@@ -122,7 +124,7 @@ std::string TypeSystem::createFunctionName(std::vector<TypeInstance> const& para
 	return name;
 }
 
-TypePtr TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
+PrimitiveType const* TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
 {
 	for (auto& type : types) 
 	{
@@ -130,7 +132,7 @@ TypePtr TypeSystem::getPrimitiveType(PrimitiveType::SubType subtype) const
 		{
 			if (primitiveType->subtype == subtype)
 			{
-				return type;
+				return primitiveType;
 			}
 		}
 	}

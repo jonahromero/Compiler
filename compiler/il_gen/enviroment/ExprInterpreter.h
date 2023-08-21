@@ -74,6 +74,6 @@ private:
 
 	std::string_view compileTemplate(SourcePosition pos, TemplateBin const* type, std::vector<ComputedExpr> args);
 	std::string createTemplateName(std::string_view templateID, std::vector<ComputedExpr> const& args);
-	void assertCorrectTemplateArgs(SourcePosition pos, std::vector<TemplateBin::TemplateParam> const& params, std::vector<ComputedExpr> const& args);
-	std::vector<Stmt::VarDecl> newBinBody(std::vector<Stmt::VarDecl> const& oldBody, std::vector<TemplateBin::TemplateParam> const& params, std::vector<ComputedExpr> const& args);
+	void assertCorrectTemplateArgs(SourcePosition pos, std::vector<TemplateBin::Parameter> const& params, std::vector<ComputedExpr> const& args);
+	std::vector<Stmt::VarDecl> newBinBody(std::vector<Stmt::VarDecl> const& oldBody, std::vector<TemplateBin::Parameter> const& params, std::vector<ComputedExpr> const& args);
 };

@@ -1,6 +1,7 @@
 
 #include "Generator.h"
 #include "Enviroment.h"
+#include "TargetInfo.h"
 
 namespace gen
 {
@@ -11,9 +12,9 @@ namespace gen
 
 	gen::Variable Generator::allocateVariable(IL::Program& instructions, TypeInstance type)
 	{
-		if (!fitsInRegister(type))
+		if (!TargetInfo::fitsInRegister(type))
 		{
-			IL::Variable buffer = simpleAllocate(instructions, calculateTypeSizeBytes(type));
+			IL::Variable buffer = simpleAllocate(instructions, TargetInfo::calculateTypeSizeBytes(type));
 			return gen::Variable {
 				buffer, gen::ReferenceType::POINTER, type
 			};
@@ -33,59 +34,36 @@ namespace gen
 		}
 	}
 
-	gen::Variable Generator::allocateNamedVariable(IL::Program& instructions, std::string_view name, TypeInstance type)
+	gen::Variable Generator::allocateNonPossessingVariable(IL::Program& instructions, TypeInstance type)
 	{
-		return gen::Variable();
+		return gen::Variable {
+			simpleNewILPointer(), gen::ReferenceType::POINTER, type
+		};
 	}
 
-	gen::Variable Generator::allocateParameter(IL::Program& instructions, TypeInstance type)
+	gen::Variable Generator::assignNonPossessingVariable(IL::Program& instructions, gen::Variable dest, gen::Variable src)
 	{
-		switch (getParameterReferenceType(type))
-		{
-		case gen::ReferenceType::VALUE:
-			IL::Type valueImpl = getValueImplementation(type);
-			return gen::Variable {
-				createNewILVariable(valueImpl), 
-				gen::ReferenceType::VALUE,
-				type
-			};
-		case gen::ReferenceType::POINTER:
-			return gen::Variable {
-				createNewILPointer(), gen::ReferenceType::POINTER, type
-			};
+		if (src.refType == gen::ReferenceType::VALUE) {
+			src = takeAddressOf(instructions, src);
 		}
+		IL::Type destILType = env.getILVariableType(dest.ilName);
+		instructions.push_back(IL::makeIL<IL::Assignment>(dest.ilName, destILType, src.ilName));
+		return dest;
 	}
 
-	gen::Variable Generator::bindParameter(IL::Program& instructions, gen::Variable param, gen::Variable arg)
+	gen::Variable Generator::createBinding(IL::Program& instructions, gen::Variable other)
 	{
-		switch (dest.refType)
-		{
-		case gen::ReferenceType::VALUE:
-			return assignVariable(instructions, param, arg);
-		case gen::ReferenceType::POINTER:
-			// we perform a shallow assignment so that way changes affect arguments
-			gen::Variable srcPtr = takeAddressOf(instructions, arg);
-			IL::Type destILType = env.getILAliasType(dest.ilName);
-			instructions.push_back(IL::makeIL<IL::Assignment>(dest.ilName, destILType, srcPtr.ilName));
-			return gen::Variable {
-				destILType, gen::ReferenceType::POINTER, dest.type
-			};
-		}
+		gen::Variable result = allocateNonPossessingVariable(instructions, other.type);
+		assignNonPossessingVariable(instructions, result, other);
+		return result;
 	}
 
-	gen::Variable Generator::allocateReturnValue(TypeInstance type)
+	gen::Variable Generator::createBindingWithOffset(IL::Program& instructions, gen::Variable target, TypeInstance newType, size_t offset)
 	{
-		if (shouldPassInReturnValue(type))
-		{
-			return gen::Variable {
-				getPointerImplementation(), gen::ReferenceType::POINTER, type
-			};
-		}
-		else {
-			return gen::Variable {
-				getValueImplementation(value), gen::ReferenceType::VALUE, type
-			};
-		}
+		target = createBinding(instructions, target);
+		target.ilName = simpleAddToPointer(instructions, target.ilName, offset);
+		target.type = newType;
+		return target;
 	}
 
 	gen::Variable Generator::copyVariable(IL::Program& instructions, gen::Variable src)
@@ -101,18 +79,18 @@ namespace gen
 		gen::Variable dereferenced = allocateVariable(instructions, ptr.type);
 
 		COMPILER_ASSERT("Cannot dereference a type that doesnt fit in a register", 
-						!fitsInRegister(ptr.type));
+						!TargetInfo::fitsInRegister(ptr.type));
 		COMPILER_ASSERT("Allocated variable should be a value type",
 						dereferenced.refType == gen::ReferenceType::VALUE);
 		COMPILER_ASSERT("An optional reference should never fit in a register", 
-						ptr.type.isRef && ptr.type.isOpt ? !fitsInRegister(ptr.type) : true);
+						ptr.type.isRef && ptr.type.isOpt ? !TargetInfo::fitsInRegister(ptr.type) : true);
 
-		IL::Type ilOutType = env.getILAliasType(dereferenced.ilName);
-		if (ptr.refType == gen::ReferenceType::POINTER) 
+		IL::Type ilOutType = env.getILVariableType(dereferenced.ilName);
+		if (ptr.refType == gen::ReferenceType::POINTER)
 		{
 			if (ptr.type.isOpt)
 			{
-				ptr.ilName = addToPointer(instructions, ptr.ilName, 1);
+				ptr.ilName = simpleAddToPointer(instructions, ptr.ilName, 1);
 				ptr.type.isOpt = false;
 			}
 			if (ptr.type.isRef)
@@ -137,10 +115,11 @@ namespace gen
 	gen::Variable Generator::assignVariable(IL::Program& instructions, gen::Variable dest, gen::Variable src)
 	{
 		COMPILER_ASSERT("Cannot assign a variable to another whose size is smaller than it.",
-						calculateTypeSizeBits(dest.type) < calculateTypeSizeBits(src.type));
+						TargetInfo::calculateTypeSizeBits(dest.type)
+						< TargetInfo::calculateTypeSizeBits(src.type));
 
-		auto destILType = env.getILAliasType(dest.ilName);
-		auto srcILType = env.getILAliasType(src.ilName);
+		auto destILType = env.getILVariableType(dest.ilName);
+		auto srcILType = env.getILVariableType(src.ilName);
 		switch (src.refType)
 		{
 		case gen::ReferenceType::VALUE:
@@ -161,7 +140,7 @@ namespace gen
 				instructions.push_back(IL::makeIL<IL::Deref>(dest.ilName, destILType, src.ilName));
 				break;
 			case gen::ReferenceType::POINTER:
-				instructions.push_back(IL::makeIL<IL::MemCopy>(dest.ilName, src.ilName, calculateTypeSizeBytes(src.type)));
+				instructions.push_back(IL::makeIL<IL::MemCopy>(dest.ilName, src.ilName, TargetInfo::calculateTypeSizeBytes(src.type)));
 				break;
 			}
 			break;
@@ -171,18 +150,23 @@ namespace gen
 	
 	gen::Variable Generator::castVariable(IL::Program& instructions, gen::Variable src, TypeInstance cast)
 	{
-		if (src.refType == gen::ReferenceType::POINTER)
-			return src;
+		if (src.refType == gen::ReferenceType::POINTER) {
+			gen::Variable copied = copyVariable(instructions, src);
+			COMPILER_ASSERT("Copied variable should also be a pointer type", 
+							copied.refType == gen::ReferenceType::POINTER);
+			copied.type = cast;
+			return copied;
+		}
 		
 		gen::Variable out = allocateVariable(instructions, cast);
-		IL::Type castedILType = env.getILAliasType(out.ilName);
+		IL::Type castedILType = env.getILVariableType(out.ilName);
 		switch (out.refType)
 		{
 		case gen::ReferenceType::VALUE:
 			instructions.push_back(IL::makeIL<IL::Cast>(out.ilName, castedILType, src.ilName));
 			break;
 		case gen::ReferenceType::POINTER:
-			instructions.push_back(IL::makeIL<IL::Store>(out.ilName, src.ilName, env.getILAliasType(src.ilName)));
+			instructions.push_back(IL::makeIL<IL::Store>(out.ilName, src.ilName, env.getILVariableType(src.ilName)));
 			break;
 		}
 		return out;
@@ -195,7 +179,7 @@ namespace gen
 		COMPILER_ASSERT("Cannot create a pointer of a pointer", 
 						var.refType == gen::ReferenceType::POINTER);
 		
-		IL::Variable ptr = createNewILPointer();
+		IL::Variable ptr = simpleNewILPointer();
 		instructions.push_back(IL::makeIL<IL::AddressOf>(ptr, var.ilName));
 		return gen::Variable {
 			ptr, gen::ReferenceType::POINTER, var.type
@@ -204,102 +188,67 @@ namespace gen
 
 	IL::Variable Generator::simpleAllocate(IL::Program& instructions, size_t size)
 	{
-		IL::Variable result = createNewILPointer();
+		IL::Variable result = simpleNewILPointer();
 		instructions.push_back(IL::makeIL<IL::Allocate>(result, size));
 		return result;
 	}
 
 	IL::Variable Generator::simpleDeref(IL::Program& instructions, IL::Type type, IL::Variable ptr)
 	{
-		COMPILER_ASSERT("Cannot dereference a non-pointer type", env.getILAliasType(ptr) == getPointerImplementation());
-		IL::Variable result = createNewILVariable(type);
+		COMPILER_ASSERT("Cannot dereference a non-pointer type", env.getILVariableType(ptr) == getPointerImplementation());
+		IL::Variable result = simpleNewILVariable(type);
 		instructions.push_back(IL::makeIL<IL::Deref>(result, type, ptr));
 		return result;
 	}
 
-	IL::Variable Generator::addToPointer(IL::Program& instructions, IL::Variable ptr, int offset)
+	IL::Variable Generator::simpleAddToPointer(IL::Program& instructions, IL::Variable ptr, size_t offset)
 	{
-		IL::Variable lhs = ptr, rhs = createNewILVariable(IL::Type::u16);
-		IL::Variable result = createNewILPointer();
-		instructions.push_back(IL::makeIL<IL::Assignment>(rhs, IL::Type::u16, offset));
+		IL::Variable lhs = ptr, rhs = simpleConstant(instructions, offset);
+		IL::Variable result = simpleNewILPointer();
 		instructions.push_back(IL::makeIL<IL::Binary>(result, getPointerImplementation(), lhs, Token::Type::PLUS, rhs));
 		return result;
 	}
 
 	IL::Variable Generator::simpleCast(IL::Program& instructions, IL::Type newType, IL::Variable var)
 	{
-		if (env.getILAliasType(var) == newType) return var;
+		if (env.getILVariableType(var) == newType) return var;
 		auto castedVariable = env.createAnonymousVariable(newType);
 		instructions.emplace_back(IL::makeIL<IL::Cast>(castedVariable, newType, var));
 		return castedVariable;
 	}
 
-	bool Generator::fitsInRegister(TypeInstance type) const
+	IL::Variable Generator::simpleConstant(IL::Program& instructions, size_t constant)
 	{
-		return calculateTypeSizeBits(type) <= LARGEST_REGISTER_SIZE_BITS;
+		IL::Variable result = simpleNewILVariable(IL::Type::u16);
+		instructions.push_back(IL::makeIL<IL::Assignment>(result, IL::Type::u16, int(constant)));
+		return result;
 	}
 
-	bool Generator::isUnsignedType(TypeInstance type) const
+	IL::Variable Generator::simpleCopy(IL::Program& instructions, IL::Variable var)
 	{
-		if (type.isOpt || type.isOpt) return true;
-		if (auto primitiveType = type.type->getExactType<PrimitiveType>()) 
-		{
-			return primitiveType->isUnsigned();
-		}
-		else {
-			return true;
-		}
-	}
-	
-	size_t Generator::calculateTypeSizeBytes(TypeInstance type) const
-	{
-		size_t sizeInBits = calculateTypeSizeBits(type);
-		return sizeInBits == 1 ? 1 : sizeInBits / 8;
+		IL::Type type = env.getILVariableType(var);
+		IL::Variable copied = env.createAnonymousVariable(type);
+		instructions.push_back(IL::makeIL<IL::Assignment>(copied, type, var));
+		return copied;
 	}
 
-	size_t Generator::calculateTypeSizeBits(TypeInstance type) const
+	bool Generator::shouldPassReturnAsParameter(TypeInstance returnType) const
 	{
-		if (auto primitiveType = type.type->getExactType<PrimitiveType>()) 
-		{
-			if (primitiveType->subtype == PrimitiveType::SubType::bool_
-				&& !type.isRef && !type.isOpt)
-				return 1;
-		}
-		size_t size = type.isRef ? POINTER_SIZE_BITS : (type.type->size * 8);
-		return size + (type.isOpt ? 1 : 0);
-	}
-
-	bool Generator::shouldPassInReturnValue(TypeInstance returnType) const
-	{
-		return !fitsInRegister(returnType);
+		return !TargetInfo::fitsInRegister(returnType);
 	}
 
 	bool Generator::canDereferenceValue(gen::Variable var) const
 	{
 		return (var.refType == gen::ReferenceType::POINTER || var.type.isRef) 
-				&& fitsInRegister(TypeInstance(var.type.type));
-	}
-
-	gen::ReferenceType Generator::getParameterReferenceType(TypeInstance type) const
-	{
-		// We will optimize the case that an argument is immutable and 
-		// fits in a register and simply pass it in by value
-		if (!type.isMut && !type.isRef && fitsInRegister(type)) 
-		{
-			return gen::ReferenceType::VALUE;
-		}
-		else 
-		{
-			return gen::ReferenceType::POINTER;
-		}
+				&& TargetInfo::fitsInRegister(TypeInstance(var.type.type));
 	}
 
 	IL::Type Generator::getValueImplementation(TypeInstance type) const
 	{
-		bool isUnsigned = isUnsignedType(type);
-		size_t sizeInBits = calculateTypeSizeBits(type);
+		bool isUnsigned = TargetInfo::isUnsignedType(type);
+		size_t sizeInBits = TargetInfo::calculateTypeSizeBits(type);
 		COMPILER_ASSERT("Cannot create a value implementation larger than register",
-						sizeInBits > LARGEST_REGISTER_SIZE_BITS);
+						TargetInfo::fitsInRegister(type));
 		switch (sizeInBits) 
 		{
 		case 0: return IL::Type::void_;
@@ -315,12 +264,12 @@ namespace gen
 		return IL::Type::u8_ptr;
 	}
 
-	IL::Variable Generator::createNewILPointer()
+	IL::Variable Generator::simpleNewILPointer()
 	{
-		return createNewILVariable(getPointerImplementation());
+		return simpleNewILVariable(getPointerImplementation());
 	}
 
-	IL::Variable Generator::createNewILVariable(IL::Type type)
+	IL::Variable Generator::simpleNewILVariable(IL::Type type)
 	{
 		return env.createAnonymousVariable(type);
 	}

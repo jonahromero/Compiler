@@ -37,13 +37,13 @@ bool Enviroment::isValidVariable(std::string_view name) const
 	return searchVariables(name) != nullptr;
 }
 
-void Enviroment::upgradeILVariableToVariable(IL::Variable variable, std::string_view name, TypeInstance type, gen::ReferenceType refType)
+void Enviroment::registerVariableName(std::string_view name, gen::Variable variable)
 {
-	variables.currentScope().emplace(name,
-		gen::Variable {
-			variable, refType, type,
-		}
-	);
+	COMPILER_ASSERT("IL variable must already exist", ilVariableTypes.find_if([&](auto& pair) {
+		return pair.first == variable.ilName;
+	}) != ilVariableTypes.end());
+
+	variables.currentScope().emplace(name, variable);
 }
 
 TypeInstance Enviroment::instantiateType(Expr::UniquePtr const& expr)

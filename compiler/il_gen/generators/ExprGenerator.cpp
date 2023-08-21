@@ -1,24 +1,10 @@
 #include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
-#include "ExprGenerator.h"
 #include "VectorUtil.h"
 #include "StringUtil.h"
 #include "SemanticError.h"
 #include "VariantUtil.h"
+#include "TargetInfo.h"
+#include "FunctionHelpers.h"
 
 ExprGenerator::ExprGenerator(Enviroment& env, TypePtr typeContext)
 	: env(env), typeContext(typeContext), gen::Generator(env)
@@ -35,7 +21,7 @@ ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
 	return ExprGenerator(env, type);
 }
 
-ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr& expr, TypeInstance outputType)
+ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr const& expr, TypeInstance outputType)
 {
 	ILExprResult result = visitChild(expr);
 	assertIsAssignableType(expr->sourcePos, result.output.type, outputType);
@@ -43,7 +29,7 @@ ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr& expr, TypeInstance
 	return result;
 }
 
-ILExprResult ExprGenerator::generate(Expr::UniquePtr& expr)
+ILExprResult ExprGenerator::generate(Expr::UniquePtr const& expr)
 {
 	return visitChild(expr);
 }
@@ -95,7 +81,7 @@ TypeInstance ExprGenerator::determineBinaryReturnType(Token::Type oper, TypeInst
 		return defaultType;
 }
 
-void ExprGenerator::visit(Expr::Binary& expr)
+void ExprGenerator::visit(Expr::Binary const& expr)
 {
 	IL::ILBody instructions;
 	auto lhs = visitChild(expr.lhs), rhs = visitChild(expr.rhs);
@@ -117,18 +103,17 @@ void ExprGenerator::visit(Expr::Binary& expr)
 	rhs.output = castVariable(instructions, rhs.output, castType);
 
 	gen::Variable out = allocateVariable(instructions, returnType);
-	IL::Type ilReturnType = env.getILAliasType(out.ilName);
+	IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
-	returnValue(ILExprResultBuilder{}.createUnnamedReference(out.refType)
-									 .withOutputAt(out.ilName).withExprType(returnType)
+	returnValue(ILExprResultBuilder{}.withOutput(out)
 									 .andInstructions(std::move(instructions))
 									 .andInstruction<IL::Binary>(
 										 out.ilName, ilReturnType,
-										 lhs.output, expr.oper, rhs.output
+										 lhs.output.ilName, expr.oper, rhs.output.ilName
 									 ).buildAsTemporary());
 }
 
-void ExprGenerator::visit(Expr::Unary& expr)
+void ExprGenerator::visit(Expr::Unary const& expr)
 {
 	IL::ILBody instructions;
 	auto rhs = visitChild(expr.expr);
@@ -144,21 +129,20 @@ void ExprGenerator::visit(Expr::Unary& expr)
 		retType = boolType;
 	}
 	gen::Variable out = allocateVariable(instructions, retType);
-	IL::Type ilReturnType = env.getILAliasType(out.ilName);
+	IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
 	returnValue(ILExprResultBuilder{}
-		.createUnnamedReference(out.refType)
-		.withOutputAt(out.ilName).withExprType(retType)
+		.withOutput(out)
 		.andInstructions(std::move(instructions))
 		.andInstruction<IL::Unary>(
 			out.ilName, ilReturnType,
-			expr.oper, rhs.output)
+			expr.oper, rhs.output.ilName)
 		.buildAsTemporary());
 }
 
-void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
+void ExprGenerator::visit(Expr::KeyworkFunctionCall const& expr)
 {
-	auto argument = visitChild(expectOneArgument(expr.sourcePos, std::move(expr.args)));
+	auto argument = visitChild(expectOneArgument(expr.sourcePos, &expr.args));
 
 	switch (expr.function) 
 	{
@@ -166,14 +150,12 @@ void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
 	{
 		IL::ILBody instructions;
 		TypeInstance exprType = env.types.getPrimitiveType(PrimitiveType::SubType::u16);
-		size_t typeSize = calculateTypeSizeBytes(argument.output.type);
+		size_t typeSize = TargetInfo::calculateTypeSizeBytes(argument.output.type);
 		gen::Variable out = allocateVariable(instructions, exprType);
-		IL::Type ilReturnType = env.getILAliasType(argument.output.ilName);
+		IL::Type ilReturnType = env.getILVariableType(argument.output.ilName);
 
 		returnValue(ILExprResultBuilder{}
-			.createUnnamedReference(out.refType)
-			.withOutputAt(out.ilName)
-			.withExprType(exprType)
+			.withOutput(out)
 			.andInstructions(std::move(instructions))
 			.andInstruction<IL::Assignment>(out.ilName, ilReturnType, int(typeSize))
 			.buildAsTemporary());
@@ -185,19 +167,18 @@ void ExprGenerator::visit(Expr::KeyworkFunctionCall& expr)
 	}
 }
 
-void ExprGenerator::visit(Expr::Parenthesis& expr)
+void ExprGenerator::visit(Expr::Parenthesis const& expr)
 {
 	returnValue(visitChild(expr.expr));
 }
 
-void ExprGenerator::visit(Expr::Identifier& expr)
+void ExprGenerator::visit(Expr::Identifier const& expr)
 {
-	if (env.isValidVariable(expr.ident)) 
+	if (env.isValidVariable(expr.ident))
 	{
 		returnValue(ILExprResultBuilder{}
-			.createNamedReference(expr.ident, env.getVariableReferenceType(expr.ident))
-			.withOutputAt(env.getVariableILAlias(expr.ident))
-			.withExprType(env.getVariableType(expr.ident))
+			.withOutput(env.getVariable(expr.ident))
+			.andName(expr.ident)
 			.buildAsPersistent());
 	}
 	else {
@@ -205,7 +186,7 @@ void ExprGenerator::visit(Expr::Identifier& expr)
 	}
 }
 
-void ExprGenerator::visit(Expr::Literal& expr)
+void ExprGenerator::visit(Expr::Literal const& expr)
 {
 	std::visit(util::OverloadVariant
 	{
@@ -213,12 +194,10 @@ void ExprGenerator::visit(Expr::Literal& expr)
 	{
 		IL::ILBody instructions;
 		gen::Variable out = allocateVariable(instructions, typeContext);
-		IL::Type ilReturnType = env.getILAliasType(out.ilName);
+		IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
 		returnValue(ILExprResultBuilder{}
-			.createUnnamedReference(out.refType)
-			.withOutputAt(out.ilName)
-			.withExprType(typeContext)
+			.withOutput(out)
 			.andInstructions(std::move(instructions))
 			.andInstruction<IL::Assignment>(out.ilName, ilReturnType, std::move(value))
 			.buildAsTemporary());
@@ -229,11 +208,11 @@ void ExprGenerator::visit(Expr::Literal& expr)
 }
 
 // Need to finish
-void ExprGenerator::visit(Expr::FunctionCall& expr) 
+void ExprGenerator::visit(Expr::FunctionCall const& expr)
 {
-	// error handling, outputs: funcType, argResults
 	auto funcPtr = visitChild(expr.lhs);
-	FunctionType const& funcType = expectCallable(funcPtr.type);
+	FunctionType const* funcType = expectCallable(expr.sourcePos, funcPtr.output.type);
+	/* error handling, outputs: funcType, argResults
 	std::vector<TypeInstance> argumentTypes;
 	auto argResults = util::transform_vector(expr.arguments, 
 	[&](Expr::UniquePtr const& arg) {
@@ -241,82 +220,49 @@ void ExprGenerator::visit(Expr::FunctionCall& expr)
 		argumentTypes.push_back(argResult.output.type);
 		return argResult;
 	});
-	assertCorrectFunctionCall(expr.sourcePos, funcType.params, argumentTypes);
+	assertCorrectFunctionCall(expr.sourcePos, funcType.params, argumentTypes);*/
 	
 	// compile it
-	IL::ILBody instructions;
-	std::vector<IL::Value> arguments;
-	for (auto& arg : argResults) 
-	{
-		arguments.push_back(arg.output);
-	}
-	if (shouldPassInReturnValue(funcType))
-	{
-		size_t bufferSize = calculateTypeSizeBytes(funcType.returnType);
-		gen::Variable returnBuffer = simpleAllocate(instructions, bufferSize);
-		arguments.push_back(returnBuffer.ilName);
-	}
-	if (funcPtr.isNamed()) 
-	{
-		instructions.push_back(IL::makeIL<IL::FunctionCall>(funcPtr.getName(), std::move(arguments)));
-	}
-	else 
-	{
-		instructions.push_back(IL::makeIL<IL::FunctionCall>(funcPtr.output, std::move(arguments)));
-	}
-	returnValue(ILExprResultBuilder{}.createUnnamedReference()
-									 .withOutputAt()
-									 .withExprType(funcType.returnType)
-									 .andInstructions(std::move(instructions))
-									 .buildAsTemporary());
+	IL::Program instructions;
+	gen::Variable result = FunctionCaller(env, funcType).callFunction(instructions, expr);
+
+	returnValue(ILExprResultBuilder{}
+		.withOutput(result)
+		.andInstructions(std::move(instructions))
+		.buildAsTemporary());
 }
 
-void ExprGenerator::visit(Expr::Indexing& expr) 
+void ExprGenerator::visit(Expr::Indexing const& expr)
 {
 	
 }
 
-void ExprGenerator::visit(Expr::Cast& expr)
+void ExprGenerator::visit(Expr::Cast const& expr)
 {
 
 }
 
-void ExprGenerator::visit(Expr::Questionable& expr)
+void ExprGenerator::visit(Expr::Questionable const& expr)
 {
 	auto evaluated = visitChild(expr.expr);
 }
 
-void ExprGenerator::visit(Expr::MemberAccess& expr)
+void ExprGenerator::visit(Expr::MemberAccess const& expr)
 {
 	ILExprResult lhs = visitChild(expr.lhs);
-	BinType::Field const& member = expectMember(expr.sourcePos, lhs.type, expr.member);
+	BinType::Field const& member = expectMember(expr.sourcePos, lhs.output.type, expr.member);
 	if (lhs.getReferenceType() != gen::ReferenceType::POINTER) 
 	{
 		throw SemanticError(expr.sourcePos, "Cannot perform member access on left hand side.");
 	}
-	switch (lhs.getReferenceType())
-	{
-	case gen::ReferenceType::POINTER:
-		lhs.output = addToPointer(lhs.instructions, lhs.output, int(member.offset));
-		break;
-	case gen::ReferenceType::VALUE:
-		if (lhs.isTemporary()) 
-		{
-		
-		}
-		else 
-		{
-		
-		}
-	}
-	auto builder = ILExprResultBuilder{}.createUnnamedReference(lhs.getReferenceType())
-									    .withOutputAt(lhs.output)
-										.withExprType(member.type)
-										.andInstructions(std::move(lhs.instructions));
-	returnValue(lhs.isTemporary() ? builder.buildAsTemporary() : builder.buildAsPersistent());
+	gen::Variable memberBinding = createBindingWithOffset(lhs.instructions, lhs.output, member.type, member.offset);
+	returnValue(ILExprResultBuilder{}
+		.withOutput(memberBinding)
+		.andInstructions(std::move(lhs.instructions))
+		.buildAsTemporary(lhs.isTemporary()));
 }
 
-void ExprGenerator::visit(Expr::ListLiteral& expr) 
+void ExprGenerator::visit(Expr::ListLiteral const& expr)
 {
 	COMPILER_NOT_SUPPORTED;
 	auto elements = util::transform_vector(expr.elements, [&](auto& expr) 
@@ -333,31 +279,31 @@ void ExprGenerator::visit(Expr::ListLiteral& expr)
 		
 	}
 }
-void ExprGenerator::visit(Expr::StructLiteral& expr) 
+void ExprGenerator::visit(Expr::StructLiteral const& expr)
 {
 	COMPILER_NOT_SUPPORTED;
 }
 
 // This is somewhat non sensical. Nothing to compile this to.
-void ExprGenerator::visit(Expr::TemplateCall& expr) 
+void ExprGenerator::visit(Expr::TemplateCall const& expr)
 {
 	throw SemanticError(expr.sourcePos, "Found unexpected type expression.");
 }
 
-void ExprGenerator::visit(Expr::Reference& expr) 
+void ExprGenerator::visit(Expr::Reference const& expr)
 {
 	throw SemanticError(expr.sourcePos, "Found unexpected type expression.");
 }
 
-void ExprGenerator::visit(Expr::FunctionType& expr)
+void ExprGenerator::visit(Expr::FunctionType const& expr)
 {
 	throw SemanticError(expr.sourcePos, "Found unexpected type expression.");
 }
 
 // These are only allowed within instructions.
-void ExprGenerator::visit(Expr::Register& expr) { COMPILER_NOT_REACHABLE;  }
-void ExprGenerator::visit(Expr::Flag& expr) { COMPILER_NOT_REACHABLE; }
-void ExprGenerator::visit(Expr::CurrentPC& expr) { COMPILER_NOT_REACHABLE; }
+void ExprGenerator::visit(Expr::Register const& expr) { COMPILER_NOT_REACHABLE;  }
+void ExprGenerator::visit(Expr::Flag const& expr) { COMPILER_NOT_REACHABLE; }
+void ExprGenerator::visit(Expr::CurrentPC const& expr) { COMPILER_NOT_REACHABLE; }
 
 bool ExprGenerator::isLogicalOperator(Token::Type oper)
 {

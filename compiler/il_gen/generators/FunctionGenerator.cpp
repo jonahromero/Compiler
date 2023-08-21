@@ -12,61 +12,24 @@ FunctionGenerator::FunctionGenerator(Enviroment& env)
 
 IL::Function FunctionGenerator::generate(Stmt::Function function)
 {
-	IL::Function ilFunction;
-	ILCtrlFlowGraph ilCfg;
-	env.startScope();
-	{	
-		std::vector<gen::Variable> paramVariables = allocateSignature(ilFunction.body, function.params, function.retType);
-		ilCfg = transformGraph(CtrlFlowGraphGenerator{ function.body }.generate());
-	}
-	env.endScope();
+	IL::ILBody instructions;
+	FunctionEnviroment functionEnv{ env };
+	functionEnv.addParameters(instructions, function.params);
 
-	ilFunction.body = flattenILCtrlFlowGraph(std::move(ilCfg));
-	ilFunction.signature = createFunctionSignature(paramVariables, returnVariable);
-	return ilFunction;
-}
+	if (function.retType.has_value()) 
+	{
+		TypeInstance returnType = env.instantiateType(function.retType.value());
+		returnVariable = allocateNonPossessingVariable(instructions, returnType);
+	}
+	ILCtrlFlowGraph ilCfg = transformGraph(CtrlFlowGraphGenerator{ function.body }.generate());
+	util::vector_append(instructions, flattenILCtrlFlowGraph(std::move(ilCfg)));
 
-std::vector<gen::Variable> 
-FunctionGenerator::allocateSignature(
-	IL::Program& instructions,
-	std::vector<Stmt::VarDecl> const& params, 
-	std::optional<Expr::UniquePtr> const& retType
-) const
-{
-	std::vector<gen::Variable> paramVariables;
-	for (auto& param : params) 
-	{
-		TypeInstance type = env.instantiateType(param.type);
-		paramVariables.push_back(allocateParameter(instructions, type);
-	}
-	if (retType.has_value()) 
-	{
-		returnVariable = env.instantiateType(retType.value());
-		paramVariables.push_back();
-	}
-	return paramVariables;
-}
-
-IL::Function::Signature FunctionGenerator::createFunctionSignature(std::vector<gen::Variable> const& params, std::optional<gen::Variable> const& retType)
-{
-	IL::Function::Signature signature;
-	signature.params = util::transform_vector(params, [&](gen::Variable const& param) {
-		return IL::Decl(param.ilName, env.getILAliasType(param.ilName));
-	});
-	auto ilReturnType = env.getILVariableType(returnVariable.ilName);
-	if (!retType.has_value()) {
-		signature.returnType = IL::Type::void_;
-	}
-	else if (shouldPassInReturnValue(retType)) 
-	{
-		signature.returnType = IL::Type::void_;
-		signature.params.push_back(IL::Decl(returnVariable.ilName, ilReturnType));
-	}
-	else 
-	{
-		signature.returnType = ilReturnType;
-	}
-	return signature;
+	return IL::Function{
+		function.name,
+		functionEnv.determineILSignature(returnVariable),
+		function.isExported,
+		std::move(instructions)
+	};
 }
 
 ILCtrlFlowGraph FunctionGenerator::transformGraph(CtrlFlowGraph graph)
@@ -118,7 +81,8 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 	[&](Stmt::VarDecl const& decl) 
 	{
 		TypeInstance type = env.instantiateType(decl.type);
-		gen::Variable lhs = allocateNamedVariable(instructions, decl.name, type);
+		gen::Variable lhs = allocateVariable(instructions, type);
+		env.registerVariableName(decl.name, lhs);
 
 		if (varDef.initializer.has_value()) 
 		{
@@ -142,11 +106,11 @@ void FunctionGenerator::visit(Stmt::VarDef& varDef)
 
 void FunctionGenerator::visit(Stmt::Assign& assign)
 {
-	IL::ILBody instructions;
+	IL::Program instructions;
 	ILExprResult lhs = ExprGenerator::defaultContext(env).generate(assign.lhs);
 	ILExprResult rhs = ExprGenerator::defaultContext(env).generate(assign.rhs);
-	util::vector_append(instructions, lhs.instructions);
-	util::vector_append(instructions, rhs.instructions);
+	util::vector_append(instructions, std::move(lhs.instructions));
+	util::vector_append(instructions, std::move(rhs.instructions));
 
 	if (lhs.isTemporary()) {
 		throw SemanticError(assign.sourcePos, "Left hand side does not produce a l-value to assign to.");
@@ -172,13 +136,14 @@ void FunctionGenerator::visit(Stmt::Instruction& stmt)
 
 void FunctionGenerator::visit(Stmt::Return& stmt)
 {
+	IL::Program instructions;
 	auto result = ExprGenerator::defaultContext(env).generateWithCast(stmt.expr, returnVariable.value().type);
 	if (!returnVariable.has_value()) 
 	{
-		returnVariable = allocateReturnValue(result.output.type);
+		returnVariable = allocateNonPossessingVariable(instructions, result.output.type);
 	}
 	assertIsAssignableType(stmt.sourcePos, result.output.type, returnVariable.value().type);
 	assignVariable(instructions, returnVariable.value(), result.output);
-	result.instructions(IL::makeIL<IL::Return>(returnVariable.value().ilName));
+	result.instructions.push_back(IL::makeIL<IL::Return>(returnVariable.value().ilName));
 	returnValue(std::move(result.instructions));
 }

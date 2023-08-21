@@ -4,6 +4,7 @@
 #include "VectorUtil.h"
 #include "TemplateReplacer.h"
 #include "VariantUtil.h"
+#include "TargetInfo.h"
 #include <algorithm>
 #include <functional>
 #include <cassert>
@@ -93,7 +94,7 @@ void ExprInterpreter::visit(Expr::KeyworkFunctionCall& expr)
 		if (expr.args.size() != 1) {
 			throw SemanticError(expr.sourcePos, "Sizeof operator expects exactly 1 argument.");
 		}
-		returnValue(ComputedExpr{ expr.sourcePos, u16(env.types.calculateTypeSize(env.instantiateType(expr.args[0]))) });
+		returnValue(ComputedExpr{ expr.sourcePos, u16(TargetInfo::calculateTypeSizeBytes(env.instantiateType(expr.args[0]))) });
 	case Token::Type::DEREF:
 		throw NotConstEvaluable(expr.sourcePos, "Cannot perform a dereference at compile-time.");
 	default:
@@ -107,7 +108,7 @@ void ExprInterpreter::visit(Expr::FunctionType& expr)
 		return env.instantiateType(param);
 	});
 	auto returnType = env.instantiateType(expr.returnType);
-	auto returnTypeInstantiated = env.types.addFunction(name, std::move(params), std::move(returnType));
+	auto returnTypeInstantiated = env.types.addFunction(std::move(params), std::move(returnType));
 	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(returnTypeInstantiated) });
 }
 
@@ -131,7 +132,7 @@ void ExprInterpreter::visit(Expr::Parenthesis& expr)
 void ExprInterpreter::visit(Expr::Identifier& expr)
 {
 	if (env.types.isType(expr.ident)) {
-		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(&env.types.getType(expr.ident))});
+		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(env.types.getType(expr.ident))});
 	}
 	else if (env.isTypeAlias(expr.ident)) {
 		returnValue(ComputedExpr{ expr.sourcePos, env.getTypeAlias(expr.ident) });
@@ -157,7 +158,7 @@ void ExprInterpreter::visit(Expr::TemplateCall& expr)
 	}
 	auto computedArgs = util::transform_vector(expr.templateArgs, [&](Expr::UniquePtr const& expr) { return interpret(expr); });
 	std::string_view name = compileTemplate(expr.sourcePos, templateType, std::move(computedArgs));
-	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(& env.types.getType(name)) });
+	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(env.types.getType(name)) });
 }
 
 void ExprInterpreter::visit(Expr::Indexing& expr)
@@ -262,7 +263,7 @@ std::string_view ExprInterpreter::compileTemplate(SourcePosition pos, TemplateBi
 	std::string name = createTemplateName(type->name, args);
 	if (env.types.isType(name)) 
 	{
-		return env.types.getType(name).name;
+		return env.types.getType(name)->name;
 	}
 	assertCorrectTemplateArgs(pos, type->templateParams, args);
 	return env.types.addBin(name, newBinBody(type->body, type->templateParams, args))->name;
@@ -284,7 +285,7 @@ std::string ExprInterpreter::createTemplateName(std::string_view templateID, std
 void ExprInterpreter::assertCorrectTemplateArgs
 (
 	SourcePosition sourcePos,
-	std::vector<TemplateBin::TemplateParam> const& params, 
+	std::vector<TemplateBin::Parameter> const& params, 
 	std::vector<ComputedExpr> const& args
 )
 {
@@ -303,7 +304,7 @@ void ExprInterpreter::assertCorrectTemplateArgs
 			if (!args[i].isInt()) {
 				throw SemanticError(args[i].sourcePos,
 					fmt::format("Unable to assign a {} to the {} template argument expecting a {}",
-						args[i].typeToString(), util::toStringWithOrdinalSuffix(i), paramType.type->name)
+						args[i].typeToString(), util::toStringWithOrdinalSuffix(i), type.type->name)
 				);
 			}
 		},
@@ -315,7 +316,7 @@ void ExprInterpreter::assertCorrectTemplateArgs
 				);
 			}
 		}
-		}}, params[i].type);
+		}, params[i].type);
 	}
 }
 

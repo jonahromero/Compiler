@@ -22,9 +22,14 @@ namespace Expr
 
 	template<typename Derived>
 	class CloneVisitor : public Expr::CloneVisitor<Derived> {};
+	
 	template<typename T>
 	class VisitorReturner : public Expr::VisitorReturnerType<T> {};
+	
 	class Visitor : public Expr::VisitorType {};
+	
+	template<typename T>
+	class ConstVisitorReturner : public Expr::ConstVisitorReturnerType<T> {};
 
 	using UniquePtr = std::unique_ptr<Expr>;
 

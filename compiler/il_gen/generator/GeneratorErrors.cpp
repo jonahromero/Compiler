@@ -1,8 +1,9 @@
 
 #include "GeneratorErrors.h"
 #include "CompilerError.h"
+#include "SemanticError.h"
 
-namesapce gen 
+namespace gen 
 {
 	PrimitiveType const* GeneratorErrors::expectPrimitive(SourcePosition const& pos, TypeInstance const& type)
 	{
@@ -53,14 +54,14 @@ namesapce gen
 		return *it;
 	}
 
-	Expr::UniquePtr GeneratorErrors::expectOneArgument(SourcePosition const& pos, std::vector<Expr::UniquePtr> args) const
+	Expr::UniquePtr const& GeneratorErrors::expectOneArgument(SourcePosition const& pos, std::vector<Expr::UniquePtr> const* args) const
 	{
-		if (args.size() != 1)
+		if (args->size() != 1)
 		{
-			std::string msg = fmt::format("Expected a single argument, but found {}.", args.size());
+			std::string msg = fmt::format("Expected a single argument, but found {}.", args->size());
 			throw SemanticError(pos, std::move(msg));
 		}
-		return std::move(args[0]);
+		return (*args)[0];
 	}
 
 

@@ -11,6 +11,7 @@
 #include "CtrlFlowGraph.h"
 #include "Generator.h"
 #include "GeneratorErrors.h"
+#include "FunctionHelpers.h"
 
 /*Will eventually support lang features*/
 /* Error Handling:
@@ -34,10 +35,6 @@ private:
 	Enviroment& env;
 	std::optional<gen::Variable> returnVariable;
 
-	std::vector<gen::Variable> allocateSignature(IL::Program& instructions, std::vector<Stmt::VarDecl> const& params, std::optional<Expr::UniquePtr> const& retType) const;
-	IL::Function::Signature createFunctionSignature(std::vector<gen::Variable> const& params, std::optional<gen::Variable> const& retType);
-	
-
 	ILCtrlFlowGraph transformGraph(CtrlFlowGraph graph);
 
 	virtual void visit(Stmt::Bin& bin) override;
@@ -55,4 +52,3 @@ private:
 	virtual void visit(Stmt::Instruction& stmt) override;
 	virtual void visit(Stmt::NullStmt& nullStmt) override {} //do nothing
 };
-

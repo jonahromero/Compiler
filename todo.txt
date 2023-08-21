@@ -7,3 +7,6 @@ refactoring:
 	-potentially split ComputedExpr, TemplateReplacer, and ExprInterpreter, 
 	 producing two functions: interpret, and instantiateType
 	 (problem is they need the enviroment*, circular)
+
+Error Handling:
+	-create seperate visitor for error handling in Expression Generator

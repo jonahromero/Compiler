@@ -28,7 +28,6 @@ public:
 	TypePtr getVoidType() const;
 
 private:
-	static constexpr size_t POINTER_SIZE = 2;
 	Type const* searchTypes(std::string_view name) const;
 
 	template<typename T>
@@ -40,7 +39,7 @@ private:
 		return types.back().get();
 	}
 
-	TemplateBin::Parameter compileTemplateDecl(Stmt::TemplateDecl const& decl);
+	TemplateBin::Parameter compileTemplateDecl(Stmt::GenericDecl const& decl);
 	BinType::Field compileBinDecl(Stmt::VarDecl const& decl, size_t offset);
 	// Naming
 	std::string createFunctionName(std::vector<TypeInstance> const& paramTypes, TypeInstance const& returnType) const;

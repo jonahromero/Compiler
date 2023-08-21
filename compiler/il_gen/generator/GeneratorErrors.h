@@ -16,6 +16,6 @@ namespace gen
 		PrimitiveType const* expectPrimitive(SourcePosition const& pos, TypeInstance const& type);
 		FunctionType const* expectCallable(SourcePosition const& pos, TypeInstance const& type);
 		BinType::Field const& expectMember(SourcePosition const& pos, TypeInstance const& type, std::string_view name);
-		Expr::UniquePtr expectOneArgument(SourcePosition const& pos, std::vector<Expr::UniquePtr> args) const;
+		Expr::UniquePtr const& expectOneArgument(SourcePosition const& pos, std::vector<Expr::UniquePtr> const* args) const;
 	};
 }
