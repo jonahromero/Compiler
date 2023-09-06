@@ -1,10 +1,10 @@
 Z80 Compiler
--Custom Language (unnamed) that compiles to Z80 Assembly
+- Custom Language (unnamed) that compiles to Z80 Assembly
 
 COMPLETE:
--Lexer, Parser, and AST generation
--IL Generation from AST
--Z80 Assembler
+- Lexer, Parser, and AST generation
+- IL Generation from AST
+- Z80 Assembler
 
 TODO:
 - IL Optimizer
