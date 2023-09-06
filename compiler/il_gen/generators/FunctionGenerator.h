@@ -9,7 +9,7 @@
 #include "VectorUtil.h"
 #include "ExprStmtVisitor.h"
 #include "CtrlFlowGraph.h"
-#include "Generator.h"
+#include "GeneratorToolKit.h"
 #include "GeneratorErrors.h"
 #include "FunctionHelpers.h"
 
@@ -22,20 +22,30 @@
 	Assembling Operands: Handled in Compiler
 */
 
+struct BlockStmtResult 
+{
+	BlockStmtResult(IL::Program allocations, IL::Program instructions) 
+		: instructions(std::move(instructions)),
+		  allocations(std::move(allocations)) {}
+	IL::Program instructions, allocations;
+};
+
 class FunctionGenerator :
-	public Stmt::VisitorReturner<IL::Program>,
-	public gen::Generator,
+	public Stmt::VisitorReturner<BlockStmtResult>,
+	public gen::GeneratorToolKit,
 	public gen::GeneratorErrors
 {
 public:
-	FunctionGenerator(Enviroment& env);
+	FunctionGenerator(Enviroment& env, IL::Program& moduleInstructions);
 	IL::Function generate(Stmt::Function function);
 
 private:
 	Enviroment& env;
+	IL::Program& moduleInstructions;
 	std::optional<gen::Variable> returnVariable;
 
 	ILCtrlFlowGraph transformGraph(CtrlFlowGraph graph);
+	std::pair<IL::Function, std::vector<TypeInstance>> generate_(Stmt::Function function);
 
 	virtual void visit(Stmt::Bin& bin) override;
 	virtual void visit(Stmt::Module& mod) override;

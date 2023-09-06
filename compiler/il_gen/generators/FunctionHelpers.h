@@ -1,10 +1,11 @@
 
 #pragma once
 #include "Enviroment.h"
+#include "GeneratorToolKit.h"
 #include "IL.h"
 
 class FunctionEnviroment
-	: public gen::Generator
+	: public gen::GeneratorToolKit
 {
 public:
 	FunctionEnviroment(Enviroment& env);
@@ -12,7 +13,7 @@ public:
 	FunctionEnviroment& operator=(FunctionEnviroment const&) = delete;
 	~FunctionEnviroment();
 
-	void addParameters(IL::Program& instructions, std::vector<Stmt::VarDecl> const& parameters);
+	std::vector<TypeInstance> addParameters(IL::Program& instructions, std::vector<Stmt::VarDecl> const& parameters);
 	IL::Function::Signature determineILSignature(std::optional<gen::Variable> const& retType);
 
 private:
@@ -25,7 +26,7 @@ private:
 };
 
 class FunctionCaller
-	: public gen::Generator
+	: public gen::GeneratorToolKit
 {
 public:
 	FunctionCaller(Enviroment& env, FunctionType const* functionType);

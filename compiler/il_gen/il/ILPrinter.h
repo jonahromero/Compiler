@@ -48,15 +48,30 @@ namespace IL
 			});
 			prettyPrint("}}");
 		}
+		virtual void visit(TestBit& expr) override {
+			prettyPrint("{} i1 = bit {}:{}", variableToString(expr.dest), variableToString(expr.bit), variableToString(expr.src));
+		}
 		virtual void visit(Test& expr) override {
 			prettyPrint("test {} [true => {}]", variableToString(expr.var), expr.trueLabel.name);
 		}
 		virtual void visit(Phi& expr) override {
-			std::string branches;
-			prettyPrint("{} {} = phi [{}]", variableToString(expr.dest.variable), ilTypeToString(expr.dest.type), branches);
+			std::string sources;
+			bool first = true;
+			for (auto& source : expr.sources) 
+			{
+				if (!first) sources += ", ";
+				sources += valueToString(source);
+				if (first) first = false;
+			}
+			prettyPrint("{} = phi [{}]", variableToString(expr.dest), sources);
 		}
 		virtual void visit(Return& expr) override {
-			prettyPrint("return {}", valueToString(expr.value));
+			if (expr.value.has_value()) {
+				prettyPrint("return {}", valueToString(expr.value.value()));
+			}
+			else {
+				prettyPrint("return");
+			}
 		}
 		virtual void visit(Assignment& expr) override {
 			prettyPrint("{} {} = {}", variableToString(expr.dest.variable), ilTypeToString(expr.dest.type), valueToString(expr.src));
@@ -94,7 +109,11 @@ namespace IL
 			prettyPrint("{} u8* = alloc({})", variableToString(allocation.dest), std::to_string(allocation.size));
 		}
 		virtual void visit(AddressOf& addressOf) override {
-			prettyPrint("{} u8* = &{}", variableToString(addressOf.ptr), variableToString(addressOf.target));
+			std::string addressable = std::visit(util::OverloadVariant{
+				[&](Variable const& target) { return variableToString(target); },
+				[&](AddressOf::Function const& target) { return std::string{target.name}; }
+			},addressOf.target);
+			prettyPrint("{} u8* = &{}", variableToString(addressOf.ptr), addressable);
 		}
 		virtual void visit(Deref& deref) override {
 			prettyPrint("{} {} = deref({})", variableToString(deref.dest.variable), ilTypeToString(deref.dest.type), variableToString(deref.ptr));

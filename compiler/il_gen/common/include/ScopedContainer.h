@@ -19,13 +19,16 @@ public:
 
 		ThisType& operator++()
 		{
-			++valueIterator;
-			if (valueIterator == scopeIterator->end()) {
+			if (valueIterator == scopeIterator->end()
+				|| ++valueIterator == scopeIterator->end()) {
 				++scopeIterator;
-				valueIterator = scopeIterator->begin();
+				validateScope();
+				if (!isEnd())
+					valueIterator = scopeIterator->begin();
 			}
 			return *this;
 		}
+
 
 		ThisType operator++(int) {
 			iterator temp = *this;
@@ -53,10 +56,14 @@ public:
 		using scope_iterator_t = typename std::vector<T>::iterator;
 
 		basic_iterator(scope_iterator_t scopeIterator, scope_iterator_t scopeIteratorEnd)
-			: scopeIterator(scopeIterator), scopeIteratorEnd(scopeIteratorEnd) {}
-
-		basic_iterator(scope_iterator_t scopeIterator, scope_iterator_t scopeIteratorEnd, value_iterator_t valueIterator)
-			: valueIterator(valueIterator), scopeIterator(scopeIterator), scopeIteratorEnd(scopeIteratorEnd) {}
+			: scopeIterator(scopeIterator), scopeIteratorEnd(scopeIteratorEnd)
+		{
+			validateScope();
+			if (!isEnd())
+			{
+				valueIterator = this->scopeIterator->begin();
+			}
+		}
 
 		template<bool IsOtherConst>
 		basic_iterator(basic_iterator<IsOtherConst> const& other) 
@@ -65,6 +72,18 @@ public:
 			  scopeIteratorEnd(other.scopeIteratorEnd) {}
 
 		bool isEnd() const { return scopeIterator == scopeIteratorEnd; }
+
+		void validateScope()
+		{
+			while (scopeIterator != scopeIteratorEnd)
+			{
+				if (scopeIterator->empty())
+					++scopeIterator;
+				else
+					break;
+			}
+		}
+
 
 		value_iterator_t valueIterator;
 		scope_iterator_t scopeIterator, scopeIteratorEnd;
@@ -75,31 +94,28 @@ public:
 
 	iterator find(typename iterator::value_type const& target) 
 	{
-		for (auto it = begin(); it != end(); ++it) {
-			if (*it == target) 
-				return it;
-		}
-		return end();
+		return std::find(begin(), end(), target);
+	}
+	const_iterator find(typename iterator::value_type const& target) const 
+	{
+		return std::find(begin(), end(), target);
+	}
+
+	template<typename Callable>
+	const_iterator find_if(Callable callable) const
+	{
+		return std::find_if(begin(), end(), std::move(callable));
 	}
 
 	template<typename Callable>
 	iterator find_if(Callable callable)
 	{
-		for (auto it = begin(); it != end(); ++it) {
-			if (callable(std::as_const(*it)))
-				return it;
-		}
-		return end();
+		return std::find_if(begin(), end(), std::move(callable));
 	}
 
 
 	iterator begin() {
-		if (scopes.empty()) {
-			return end();
-		}
-		else {
-			return iterator(scopes.begin(), scopes.end(), scopes.front().begin());
-		}
+		return iterator(scopes.begin(), scopes.end());
 	}
 	iterator end() {
 		return iterator(scopes.end(), scopes.end());

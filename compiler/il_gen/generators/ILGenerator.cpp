@@ -41,12 +41,13 @@ void ILGenerator::visit(Stmt::Bin& bin)
 
 void ILGenerator::visit(Stmt::Function& func)
 {
+	IL::Program moduleInstructions;
 	if (func.isTemplate()) {
 		throw SemanticError(func.sourcePos, "Function templates not suppported");
 		returnForStmt();
 	}
 	else {
-		auto body = FunctionGenerator{ env }.generate(std::move(func));
+		auto body = FunctionGenerator{ env, moduleInstructions }.generate(std::move(func));
 		std::vector<IL::UniquePtr> stmts;
 		stmts.push_back(IL::makeIL<IL::Function>(std::move(body)));
 		returnForStmt(std::move(stmts));

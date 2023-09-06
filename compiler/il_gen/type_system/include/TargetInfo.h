@@ -8,9 +8,11 @@ public:
 	static size_t calculateTypeSizeBytes(TypeInstance type);
 	static size_t calculateTypeSizeBits(TypeInstance type);
 	static size_t getPointerSizeBytes();
+	static size_t getRegisterSizeBytes();
 
 	static bool fitsInRegister(TypeInstance type);
 	static bool isUnsignedType(TypeInstance type);
+	static bool isLittleEndian();
 private:
 	// The sizes and implementation functions allow for hard coding some 
 	// implementation and compiler specifics

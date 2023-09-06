@@ -1,13 +1,13 @@
 #pragma once
 #include "Stmt.h"
 #include "ILExprResult.h"
-#include "Generator.h"
+#include "GeneratorToolKit.h"
 #include "GeneratorErrors.h"
 
 
 class ExprGenerator :
 	public Expr::ConstVisitorReturner<ILExprResult>,
-	public gen::Generator,
+	public gen::GeneratorToolKit,
 	public gen::GeneratorErrors
 {
 public:
@@ -33,8 +33,10 @@ private:
 													 Token::Type oper, 
 													 PrimitiveType const* rhs);
 	TypeInstance determineBinaryReturnType(Token::Type oper, TypeInstance defaultType) const;
+	ListType const* determineListLiteralType(SourcePosition const& pos, std::vector<ILExprResult> const& elements);
 
-
+	using Expr::ConstVisitorReturner<ILExprResult>::visitChild;
+	std::vector<ILExprResult> visitChild(std::vector<Expr::UniquePtr> const& args);
 
 	virtual void visit(Expr::Binary const& expr);
 	virtual void visit(Expr::Unary const& expr);

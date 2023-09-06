@@ -11,8 +11,8 @@
 
 using enum Token::Type;
 
-ExprInterpreter::ExprInterpreter(Enviroment& env)
-	: env(env) {}
+ExprInterpreter::ExprInterpreter(TypeSystem& types)
+	: types(types) {}
 
 ComputedExpr ExprInterpreter::interpret(Expr::UniquePtr const& expr)
 {
@@ -94,9 +94,9 @@ void ExprInterpreter::visit(Expr::KeyworkFunctionCall& expr)
 		if (expr.args.size() != 1) {
 			throw SemanticError(expr.sourcePos, "Sizeof operator expects exactly 1 argument.");
 		}
-		returnValue(ComputedExpr{ expr.sourcePos, u16(TargetInfo::calculateTypeSizeBytes(env.instantiateType(expr.args[0]))) });
-	case Token::Type::DEREF:
-		throw NotConstEvaluable(expr.sourcePos, "Cannot perform a dereference at compile-time.");
+		returnValue(ComputedExpr{ expr.sourcePos, u16(TargetInfo::calculateTypeSizeBytes(types.instantiateType(expr.args[0]))) });
+	case Token::Type::REF:
+		throw NotConstEvaluable(expr.sourcePos, "Cannot perform a reference at compile-time.");
 	default:
 		COMPILER_NOT_REACHABLE;
 	}
@@ -105,16 +105,16 @@ void ExprInterpreter::visit(Expr::KeyworkFunctionCall& expr)
 void ExprInterpreter::visit(Expr::FunctionType& expr)
 {
 	auto params = util::transform_vector(expr.paramTypes, [&](Expr::UniquePtr const& param) {
-		return env.instantiateType(param);
+		return types.instantiateType(param);
 	});
-	auto returnType = env.instantiateType(expr.returnType);
-	auto returnTypeInstantiated = env.types.addFunction(std::move(params), std::move(returnType));
+	auto returnType = types.instantiateType(expr.returnType);
+	auto returnTypeInstantiated = types.addFunction(std::move(params), std::move(returnType));
 	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(returnTypeInstantiated) });
 }
 
 void ExprInterpreter::visit(Expr::Cast& expr)
 {
-	auto type = env.instantiateType(expr.type);
+	auto type = types.instantiateType(expr.type);
 	auto result = visitChild(expr.expr);
 	if (result.isInt()) {
 		COMPILER_NOT_SUPPORTED;
@@ -131,11 +131,13 @@ void ExprInterpreter::visit(Expr::Parenthesis& expr)
 
 void ExprInterpreter::visit(Expr::Identifier& expr)
 {
-	if (env.types.isType(expr.ident)) {
-		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(env.types.getType(expr.ident))});
+	if (types.isType(expr.ident)) 
+	{
+		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(types.getType(expr.ident))});
 	}
-	else if (env.isTypeAlias(expr.ident)) {
-		returnValue(ComputedExpr{ expr.sourcePos, env.getTypeAlias(expr.ident) });
+	else if (types.isTypeAlias(expr.ident)) 
+	{
+		returnValue(ComputedExpr{ expr.sourcePos, types.getTypeAlias(expr.ident) });
 	}
 	else {
 		throw NotConstEvaluable(expr.sourcePos, "Variable lookup cannot be performed at compile-time");
@@ -149,7 +151,7 @@ void ExprInterpreter::visit(Expr::FunctionCall& expr)
 
 void ExprInterpreter::visit(Expr::TemplateCall& expr)
 {
-	TypeInstance lhs = env.instantiateType(expr.lhs);
+	TypeInstance lhs = types.instantiateType(expr.lhs);
 	TemplateBin const* templateType = lhs.type->getExactType<TemplateBin>();
 	if (!templateType) {
 		throw SemanticError(expr.sourcePos,
@@ -158,7 +160,7 @@ void ExprInterpreter::visit(Expr::TemplateCall& expr)
 	}
 	auto computedArgs = util::transform_vector(expr.templateArgs, [&](Expr::UniquePtr const& expr) { return interpret(expr); });
 	std::string_view name = compileTemplate(expr.sourcePos, templateType, std::move(computedArgs));
-	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(env.types.getType(name)) });
+	returnValue(ComputedExpr{ expr.sourcePos, TypeInstance(types.getType(name)) });
 }
 
 void ExprInterpreter::visit(Expr::Indexing& expr)
@@ -172,16 +174,16 @@ void ExprInterpreter::visit(Expr::Indexing& expr)
 		if (!innerExpr.isInt()) {
 			throw SemanticError(expr.innerExpr->sourcePos, "Array type expression must have a compile-time number of elements.");
 		}
-		if (auto arrayType = type.type->getExactType<ArrayType>()) 
+		if (auto arrayType = type.type->getExactType<ListType>()) 
 		{
 			if (type.isMut || type.isOpt || type.isRef) {
 				throw SemanticError(expr.lhs->sourcePos, "Cannot create an array of reference/mutable/maybe arrays.");
 			}
-			newArray = env.types.modifyAndAddArray(arrayType, innerExpr.getInt());
+			newArray = types.modifyAndAddArray(arrayType, innerExpr.getInt());
 		}
 		else
 		{
-			newArray = env.types.addArray(type, innerExpr.getInt());
+			newArray = types.addArray(type, innerExpr.getInt());
 		}
 		returnValue(ComputedExpr{expr.sourcePos, TypeInstance(newArray)});
 	}
@@ -198,7 +200,7 @@ void ExprInterpreter::visit(Expr::MemberAccess& expr)
 
 void ExprInterpreter::visit(Expr::Questionable& expr)
 {
-	auto lhs = env.instantiateType(expr.expr);
+	auto lhs = types.instantiateType(expr.expr);
 	if (lhs.isOpt) {
 		throw SemanticError(expr.sourcePos, "Cannot have an optional of an optional value.");
 	}
@@ -208,7 +210,7 @@ void ExprInterpreter::visit(Expr::Questionable& expr)
 
 void ExprInterpreter::visit(Expr::Reference& expr)
 {
-	auto lhs = env.instantiateType(expr.expr);
+	auto lhs = types.instantiateType(expr.expr);
 	if (lhs.isRef) {
 		throw SemanticError(expr.sourcePos, "Multiple levels of referencing is not allowed.");
 	}
@@ -261,12 +263,12 @@ void ExprInterpreter::visit(Expr::StructLiteral& expr)
 std::string_view ExprInterpreter::compileTemplate(SourcePosition pos, TemplateBin const* type, std::vector<ComputedExpr> args)
 {
 	std::string name = createTemplateName(type->name, args);
-	if (env.types.isType(name)) 
+	if (types.isType(name)) 
 	{
-		return env.types.getType(name)->name;
+		return types.getType(name)->name;
 	}
 	assertCorrectTemplateArgs(pos, type->templateParams, args);
-	return env.types.addBin(name, newBinBody(type->body, type->templateParams, args))->name;
+	return types.addBin(name, newBinBody(type->body, type->templateParams, args))->name;
 }
 
 std::string ExprInterpreter::createTemplateName(std::string_view templateID, std::vector<ComputedExpr> const& args)

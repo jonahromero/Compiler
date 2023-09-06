@@ -48,7 +48,7 @@ namespace IL
 		: public visit::VisitableBase<IL,
 		struct Function, struct Binary, struct Unary, struct Phi, struct Return, struct Assignment,
 		struct Instruction, struct Jump, struct FunctionCall, struct Label, struct Test, struct Cast, 
-		struct Allocate, struct Deref, struct Store, struct MemCopy, struct AddressOf>
+		struct Allocate, struct Deref, struct Store, struct MemCopy, struct AddressOf, struct TestBit>
 	{
 	public:
 	};
@@ -76,11 +76,11 @@ namespace IL
 
 	struct Phi : IL::Visitable<Phi> 
 	{
-		Phi(Variable dest, Type type, std::vector<Variable> sources)
-			: dest(dest, type), sources(std::move(sources)) {}
+		Phi(Variable dest, std::vector<Value> sources)
+			: dest(dest), sources(std::move(sources)) {}
 
-		Decl dest;
-		std::vector<Variable> sources;
+		Variable dest;
+		std::vector<Value> sources;
 	};
 
 	struct Function : IL::Visitable<Function> 
@@ -146,10 +146,11 @@ namespace IL
 	// misc
 	struct Return : IL::Visitable<Return> 
 	{
+		Return() = default;
 		Return(Value value)
 			: value(value) {}
 
-		Value value;
+		std::optional<Value> value;
 	};
 
 	struct Instruction : IL::Visitable<Instruction> 
@@ -198,10 +199,14 @@ namespace IL
 
 	struct AddressOf : IL::Visitable<AddressOf>
 	{
-		AddressOf(Variable ptr, Variable target) 
+		struct Function { std::string_view name; };
+		using Addressable = std::variant<Variable, Function>;
+
+		AddressOf(Variable ptr, Addressable target) 
 			: ptr(ptr), target(target) {}
 
-		Variable ptr, target;
+		Variable ptr;
+		Addressable target;
 	};
 
 	struct Deref : IL::Visitable<Deref> 
@@ -229,6 +234,15 @@ namespace IL
 
 		Variable dest, src;
 		size_t length;
+	};
+
+	struct TestBit : IL::Visitable<TestBit>
+	{
+		TestBit(Variable dest, Variable src, size_t bit)
+			: dest(dest), src(src), bit(bit) {}
+
+		Variable dest, src;
+		size_t bit;
 	};
 
 }

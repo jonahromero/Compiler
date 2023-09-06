@@ -246,7 +246,7 @@ Expr::UniquePtr ExprParser::primary()
 	else if (matchType(NUMBER, STRING)) {
 		return Expr::makeExpr<Expr::Literal>(previousSourcePos(), peekPrevious().literal);
 	}
-	else if (matchType(SIZEOF, DEREF)) {
+	else if (matchType(SIZEOF, REF)) {
 		auto pos = previousSourcePos();
 		auto function = previousType();
 		expect(LEFT_PARENTH);
@@ -260,7 +260,7 @@ Expr::UniquePtr ExprParser::primary()
 		auto canMatchName = [&]() { return peek().type == IDENT && peekNext().type == COLON; };
 		bool isNamed = canMatchName();
 		std::vector<Expr::UniquePtr> initializers;
-		std::vector<std::string_view> names;
+		std::optional<std::vector<std::string_view>> names;
 		do {
 			if (!isNamed && canMatchName()) {
 				throwMismatchedStruct();
@@ -269,7 +269,9 @@ Expr::UniquePtr ExprParser::primary()
 				if (!canMatchName()) {
 					throwMismatchedStruct();
 				}
-				names.push_back(expectIdent());
+				if (!names.has_value()) 
+					names = std::vector<std::string_view>{};
+				names.value().push_back(expectIdent());
 				matchType(COLON);
 			}
 			initializers.push_back(nestedExpr());

@@ -1,3 +1,4 @@
+#include "GeneratorErrors.h"
 
 #include "GeneratorErrors.h"
 #include "CompilerError.h"
@@ -79,12 +80,40 @@ namespace gen
 
 	void GeneratorErrors::assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const
 	{
+		if (dest.isMut) 
+		{
+			throw SemanticError(pos, 
+				fmt::format("Cannot assign a variable of mutable "
+							"type. Occured when assigning: {}, to {}", 
+							dest.type->name, src.type->name));
+		}
 		if (dest.type != src.type)
 		{
 			throw SemanticError(pos, fmt::format("Cannot initialize an expression of type: {}, when "
 				"an argument of type: {}, is expected.",
 				dest.type->name, src.type->name));
 		}
+	}
+
+	void GeneratorErrors::assertIsCastableType(SourcePosition pos, TypeInstance src, TypeInstance cast) const
+	{
+		auto srcPrimitive = src.type->getExactType<PrimitiveType>();
+		auto castPrimitive = src.type->getExactType<PrimitiveType>();
+		// You can only cast primitive types to one another
+		//if (!srcPrimitive || !castPrimitive)
+		{
+			//throw SemanticError(pos, fmt::format("Cannot cast an expression of type: {}, to {}.",
+				//src.type->name, cast.type->name));
+		}
+	}
+
+	ListType const* GeneratorErrors::expectListType(SourcePosition const& pos, TypeInstance const& type)
+	{
+		if (auto arrayType = type.type->getExactType<ListType>()) {
+			return arrayType;
+		}
+		throw SemanticError(pos, 
+			fmt::format("Expected a list type, however, it recieved {} instead.", type.type->name));
 	}
 
 	void GeneratorErrors::assertCorrectFunctionCall(SourcePosition pos, std::vector<TypeInstance> const& params, std::vector<TypeInstance> const& args)

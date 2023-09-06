@@ -1,4 +1,4 @@
 
-add_library(il_gen_common INTERFACE)
+add_library(il_gen_errors INTERFACE)
 
-target_include_directories(il_gen_common INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(il_gen_errors INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")

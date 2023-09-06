@@ -1,26 +1,24 @@
 
 #include "Enviroment.h"
-#include "ExprInterpreter.h"
 #include "SemanticError.h"
 #include <ranges>
 
 Enviroment::Enviroment()
-	: types(*this)
 {
 	// add the default global scope
-	startScope();
+	newScope();
 }
 
-void Enviroment::startScope()
+void Enviroment::newScope()
 {
-	typeAliases.newScope();
+	types.newScope();
 	variables.newScope();
 	ilVariableTypes.newScope();
 }
 
 void Enviroment::destroyScope()
 {
-	typeAliases.destroyScope();
+	types.destroyScope();
 	variables.destroyScope();
 	ilVariableTypes.destroyScope();
 }
@@ -32,9 +30,11 @@ IL::Variable Enviroment::createAnonymousVariable(IL::Type ilType)
 	return temp;
 }
 
-bool Enviroment::isValidVariable(std::string_view name) const
+bool Enviroment::isValidVariable(std::string_view targetName) const
 {
-	return searchVariables(name) != nullptr;
+	return variables.find_if([&](auto& pair) {
+		return pair.first == targetName;
+	}) != variables.end();
 }
 
 void Enviroment::registerVariableName(std::string_view name, gen::Variable variable)
@@ -46,59 +46,16 @@ void Enviroment::registerVariableName(std::string_view name, gen::Variable varia
 	variables.currentScope().emplace(name, variable);
 }
 
-TypeInstance Enviroment::instantiateType(Expr::UniquePtr const& expr)
+gen::Variable const& Enviroment::getVariable(std::string_view name) const
 {
-	try {
-		ComputedExpr result = ExprInterpreter{ *this }.interpret(expr);
-		if (!result.isTypeInstance()) {
-			throw SemanticError(
-				expr->sourcePos, 
-				fmt::format("Expected a type, but found a {} instead", result.typeToString())
-			);
-		}
-		return result.getTypeInstance();
-	}
-	catch (ExprInterpreter::NotConstEvaluable const&) {
-		throw SemanticError(expr->sourcePos, "Expected a type, but was unable to determine the expression at compile time");
-	}
+	return variables.find_if([&](auto& pair) {
+		return pair.first == name;
+	})->second;
 }
 
-void Enviroment::addTypeAlias(std::string_view name, TypeInstance instance)
+IL::Type Enviroment::getILVariableType(IL::Variable variable) const
 {
-	typeAliases.currentScope().emplace(name, instance);
-}
-
-TypeInstance const& Enviroment::getTypeAlias(std::string_view name) const
-{
-	return *searchTypeAliases(name);
-}
-
-bool Enviroment::isTypeAlias(std::string_view name) const
-{
-	return searchTypeAliases(name) != nullptr;
-}
-
-gen::Variable const* Enviroment::searchVariables(std::string_view targetName) const
-{
-	// You're more likely to use variables in the immideate scope
-	for (auto& [name, variable] : variables)
-	{
-		if (targetName == name) 
-		{
-			return &variable;
-		}
-	}
-	return nullptr;
-}
-
-TypeInstance const* Enviroment::searchTypeAliases(std::string_view targetName) const
-{
-	for (auto& [name, type] : typeAliases)
-	{
-		if (targetName == name)
-		{
-			return &type;
-		}
-	}
-	return nullptr;
+	return ilVariableTypes.find_if([&](auto& pair) {
+		return pair.first == variable;
+	})->second;
 }

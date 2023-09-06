@@ -7,7 +7,7 @@
 
 struct ILExprResult
 {
-	IL::Program instructions;
+	IL::Program allocations, instructions;
 	gen::Variable output;
 
 	gen::ReferenceType getReferenceType() const 
@@ -46,6 +46,11 @@ public:
 	}
 	ILExprResultBuilderFinalizer& andName(std::string_view name) {
 		result.m_name = name;
+		return *this;
+	}
+	ILExprResultBuilderFinalizer& andPreviousResult(ILExprResult& other) {
+		util::vector_append(result.instructions, std::move(other.instructions));
+		util::vector_append(result.allocations, std::move(other.allocations));
 		return *this;
 	}
 	ILExprResultBuilderFinalizer& andInstruction(IL::UniquePtr instruction) {

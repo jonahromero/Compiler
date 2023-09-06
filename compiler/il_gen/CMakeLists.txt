@@ -1,7 +1,10 @@
 
 add_subdirectory(common)
+add_subdirectory(errors)
 add_subdirectory(il)
-add_subdirectory(generator)
+add_subdirectory(type_system)
+
+add_subdirectory("variable")
 add_subdirectory(ctrl_flow_graph)
 add_subdirectory(generators)
 add_subdirectory(enviroment)

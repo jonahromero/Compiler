@@ -21,7 +21,12 @@ size_t TargetInfo::calculateTypeSizeBits(TypeInstance type)
 
 size_t TargetInfo::getPointerSizeBytes()
 {
-	return POINTER_SIZE_BITS / 2;
+	return POINTER_SIZE_BITS / 8;
+}
+
+size_t TargetInfo::getRegisterSizeBytes()
+{
+	return LARGEST_REGISTER_SIZE_BITS / 8;
 }
 
 bool TargetInfo::fitsInRegister(TypeInstance type)
@@ -39,4 +44,9 @@ bool TargetInfo::isUnsignedType(TypeInstance type)
 	else {
 		return true;
 	}
+}
+
+bool TargetInfo::isLittleEndian()
+{
+	return true;
 }

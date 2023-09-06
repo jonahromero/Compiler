@@ -1,5 +1,5 @@
 
-
+add_subdirectory(default)
 add_library(il_gen_generators STATIC 
 	FunctionGenerator.cpp
 	FunctionHelpers.cpp
@@ -13,7 +13,9 @@ target_include_directories(il_gen_generators
 )
 target_link_libraries(il_gen_generators PUBLIC 
 	il 
-	generator
+	il_gen_errors
+	default_generator
 	il_gen_enviroment 
 	il_gen_ctrl_flow_graph
+	default_generator
 )

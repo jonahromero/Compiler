@@ -7,7 +7,7 @@
 #include "FunctionHelpers.h"
 
 ExprGenerator::ExprGenerator(Enviroment& env, TypePtr typeContext)
-	: env(env), typeContext(typeContext), gen::Generator(env)
+	: env(env), typeContext(typeContext), gen::GeneratorToolKit(env)
 {
 }
 
@@ -24,8 +24,9 @@ ExprGenerator ExprGenerator::typedContext(Enviroment& env, TypePtr type)
 ILExprResult ExprGenerator::generateWithCast(Expr::UniquePtr const& expr, TypeInstance outputType)
 {
 	ILExprResult result = visitChild(expr);
-	assertIsAssignableType(expr->sourcePos, result.output.type, outputType);
-	result.output = castVariable(result.instructions, result.output, outputType);
+	assertIsCastableType(expr->sourcePos, result.output.type, outputType);
+	if (result.output.type != outputType)
+		result.output = castVariable(result.instructions, result.output, outputType);
 	return result;
 }
 
@@ -81,6 +82,35 @@ TypeInstance ExprGenerator::determineBinaryReturnType(Token::Type oper, TypeInst
 		return defaultType;
 }
 
+ListType const* ExprGenerator::determineListLiteralType(SourcePosition const& pos, std::vector<ILExprResult> const& elements)
+{
+	size_t elementCount = elements.size();
+	if (elementCount == 0) {
+		// deduce based on context
+		if (auto listType = typeContext->getExactType<ListType>()) {
+			return listType;
+		}
+		throw SemanticError(pos, "Unable to determine the type of empty list.");
+	}
+	TypePtr elementType = elements[0].output.type.type;
+	for (auto& element : elements) {
+		if (element.output.type.type != elementType) 
+		{
+			throw SemanticError(pos, fmt::format("Not all types in the list literal are the same. "
+												 "Found a {} and {}, which are contradictory.",
+												 elementType->name, element.output.type.type->name));
+		}
+	}
+	return env.types.addArray(TypeInstance(elementType), elementCount)->getExactType<ListType>();
+}
+
+std::vector<ILExprResult> ExprGenerator::visitChild(std::vector<Expr::UniquePtr> const& args)
+{
+	return util::transform_vector(args, [&](Expr::UniquePtr const& arg) {
+		return visitChild(arg);
+	});
+}
+
 void ExprGenerator::visit(Expr::Binary const& expr)
 {
 	IL::ILBody instructions;
@@ -94,13 +124,10 @@ void ExprGenerator::visit(Expr::Binary const& expr)
 	TypeInstance castType = determineBinaryOperandCasts(expr.sourcePos, lhsType, expr.oper, rhsType);
 	TypeInstance returnType = determineBinaryReturnType(expr.oper, castType);
 
-	if (canDereferenceValue(lhs.output))
-		lhs.output = derefVariable(instructions, lhs.output);
-	if (canDereferenceValue(rhs.output))
-		rhs.output = derefVariable(instructions, rhs.output);
-
-	lhs.output = castVariable(instructions, lhs.output, castType);
-	rhs.output = castVariable(instructions, rhs.output, castType);
+	lhs.output = getDataTypeAsValue(instructions, lhs.output);
+	rhs.output = getDataTypeAsValue(instructions, rhs.output);
+	if (lhs.output.type != castType) lhs.output = castVariable(instructions, lhs.output, castType);
+	if (rhs.output.type != castType) rhs.output = castVariable(instructions, rhs.output, castType);
 
 	gen::Variable out = allocateVariable(instructions, returnType);
 	IL::Type ilReturnType = env.getILVariableType(out.ilName);
@@ -128,6 +155,7 @@ void ExprGenerator::visit(Expr::Unary const& expr)
 		castVariable(instructions, rhs.output, boolType);
 		retType = boolType;
 	}
+	rhs.output = getDataTypeAsValue(instructions, rhs.output);
 	gen::Variable out = allocateVariable(instructions, retType);
 	IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
@@ -142,17 +170,18 @@ void ExprGenerator::visit(Expr::Unary const& expr)
 
 void ExprGenerator::visit(Expr::KeyworkFunctionCall const& expr)
 {
-	auto argument = visitChild(expectOneArgument(expr.sourcePos, &expr.args));
+	Expr::UniquePtr const& arg = expectOneArgument(expr.sourcePos, &expr.args);
+	TypeInstance u16TypeInstance = env.types.getPrimitiveType(PrimitiveType::SubType::u16);
+	TypeInstance u8TypeInstance = env.types.getPrimitiveType(PrimitiveType::SubType::u8);
 
 	switch (expr.function) 
 	{
 	case Token::Type::SIZEOF: 
 	{
 		IL::ILBody instructions;
-		TypeInstance exprType = env.types.getPrimitiveType(PrimitiveType::SubType::u16);
-		size_t typeSize = TargetInfo::calculateTypeSizeBytes(argument.output.type);
-		gen::Variable out = allocateVariable(instructions, exprType);
-		IL::Type ilReturnType = env.getILVariableType(argument.output.ilName);
+		size_t typeSize = TargetInfo::calculateTypeSizeBytes(env.types.instantiateType(arg));
+		gen::Variable out = allocateVariable(instructions, u16TypeInstance);
+		IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
 		returnValue(ILExprResultBuilder{}
 			.withOutput(out)
@@ -161,7 +190,22 @@ void ExprGenerator::visit(Expr::KeyworkFunctionCall const& expr)
 			.buildAsTemporary());
 		break;
 	}
-	case Token::Type::DEREF:
+	case Token::Type::REF: {
+		auto result = ExprGenerator::typedContext(env, u16TypeInstance.type).generateWithCast(arg, u16TypeInstance);
+		result.output = getDataTypeAsValue(result.instructions, result.output);
+		IL::Variable pointer = simpleCast(result.instructions, getPointerImplementation(), result.output.ilName);
+		TypeInstance u8Ref = u8TypeInstance;
+		u8Ref.isRef = true;
+		gen::Variable ref = gen::Variable{
+			pointer, gen::ReferenceType::VALUE, u8Ref
+		};
+		returnValue(ILExprResultBuilder{}
+			.withOutput(ref)
+			.andInstructions(std::move(result.instructions))
+			.buildAsPersistent());
+		break;
+	}
+	default:
 		COMPILER_NOT_REACHABLE;
 		break;
 	}
@@ -194,6 +238,11 @@ void ExprGenerator::visit(Expr::Literal const& expr)
 	{
 		IL::ILBody instructions;
 		gen::Variable out = allocateVariable(instructions, typeContext);
+		if (!typeContext->getExactType<PrimitiveType>()) {
+			throw SemanticError(expr.sourcePos, 
+				fmt::format("Found an integer literal, when the following type was expected: {}", 
+							typeContext->name));
+		}
 		IL::Type ilReturnType = env.getILVariableType(out.ilName);
 
 		returnValue(ILExprResultBuilder{}
@@ -234,17 +283,45 @@ void ExprGenerator::visit(Expr::FunctionCall const& expr)
 
 void ExprGenerator::visit(Expr::Indexing const& expr)
 {
-	
+	IL::Program instructions;
+	auto lhs = visitChild(expr.lhs);
+	auto innerExpr = visitChild(expr.innerExpr);
+	util::vector_append(instructions, std::move(lhs.instructions));
+	util::vector_append(instructions, std::move(innerExpr.instructions));
+
+	ListType const* list = expectListType(expr.sourcePos, lhs.output.type);
+	gen::Variable elementRef = createBindingWithOffset(instructions, lhs.output, list->elementType, innerExpr.output);
+	if (lhs.output.type.isMut) 
+	{
+		elementRef.type.isMut = true;
+	}
+	returnValue(ILExprResultBuilder{}
+		.withOutput(elementRef)
+		.andInstructions(std::move(instructions))
+		.buildAsPersistent());
 }
 
 void ExprGenerator::visit(Expr::Cast const& expr)
 {
-
+	ILExprResult result = visitChild(expr.expr);
+	TypeInstance castedType = env.types.instantiateType(expr.type);
+	assertIsCastableType(expr.sourcePos, result.output.type, castedType);
+	result.output = castVariable(result.instructions, result.output, castedType);
+	returnValue(std::move(result));
 }
 
 void ExprGenerator::visit(Expr::Questionable const& expr)
 {
-	auto evaluated = visitChild(expr.expr);
+	IL::Program instructions;
+	auto arg = visitChild(expr.expr);
+	if (!arg.output.type.isOpt) {
+		throw SemanticError(expr.sourcePos, "Only a value with a maybe-type can be questioned");
+	}
+	gen::Variable result = getOptionalness(instructions, arg.output);
+	returnValue(ILExprResultBuilder{}
+			.withOutput(result)
+			.andInstructions(std::move(instructions))
+			.buildAsTemporary());
 }
 
 void ExprGenerator::visit(Expr::MemberAccess const& expr)
@@ -255,7 +332,12 @@ void ExprGenerator::visit(Expr::MemberAccess const& expr)
 	{
 		throw SemanticError(expr.sourcePos, "Cannot perform member access on left hand side.");
 	}
-	gen::Variable memberBinding = createBindingWithOffset(lhs.instructions, lhs.output, member.type, member.offset);
+	gen::Variable offset = allocateConstant(lhs.instructions, member.offset, PrimitiveType::SubType::u16);
+	gen::Variable memberBinding = createBindingWithOffset(lhs.instructions, lhs.output, member.type, offset);
+	if (lhs.output.type.isMut)
+	{
+		memberBinding.type.isMut = true;
+	}
 	returnValue(ILExprResultBuilder{}
 		.withOutput(memberBinding)
 		.andInstructions(std::move(lhs.instructions))
@@ -264,24 +346,69 @@ void ExprGenerator::visit(Expr::MemberAccess const& expr)
 
 void ExprGenerator::visit(Expr::ListLiteral const& expr)
 {
-	COMPILER_NOT_SUPPORTED;
-	auto elements = util::transform_vector(expr.elements, [&](auto& expr) 
-	{
-		return visitChild(expr);
-	});
+	IL::Program instructions;
+	auto elements = util::transform_vector(expr.elements, [&](auto& element)
+		{
+			auto listType = typeContext->getExactType<ListType>();
+			auto result = listType ? ExprGenerator::typedContext(env, listType->elementType.type).generate(element)
+									: ExprGenerator::defaultContext(env).generate(element);
+			util::vector_append(instructions, std::move(result.instructions));
+			return result;
+		});
+
+
 	// default initialize the array
-	if (elements.empty()) 
+	ListType const* literalType = determineListLiteralType(expr.sourcePos, elements);
+	gen::Variable buffer = allocateVariable(instructions, literalType);
+
+	if (!elements.empty())
 	{
-		typeContext->size;
+		size_t factor = 1;
+		for (size_t i = 0; i < elements.size(); ++i)
+		{
+			size_t stride = TargetInfo::calculateTypeSizeBytes(literalType->elementType);
+			gen::Variable constant = allocateConstant(instructions, stride * i, PrimitiveType::SubType::u16);
+			gen::Variable bufferElement = createBindingWithOffset(instructions, buffer, literalType->elementType, constant);
+			assignVariable(instructions, bufferElement, elements[i].output);
+		}
 	}
-	else 
-	{
-		
-	}
+	returnValue(ILExprResultBuilder{}
+				.withOutput(buffer)
+				.andInstructions(std::move(instructions))
+				.buildAsTemporary());
 }
 void ExprGenerator::visit(Expr::StructLiteral const& expr)
 {
-	COMPILER_NOT_SUPPORTED;
+	IL::Program instructions;
+	auto binType = typeContext->getExactType<BinType>();
+	if (!binType) {
+		throw SemanticError(expr.sourcePos, "Unable to deduce the type of struct literal.");
+	}
+	if (expr.initializers.size() != binType->members.size()) {
+		throw SemanticError(expr.sourcePos, "Provided an incorrect number of initializers in struct literal.");
+	}
+	gen::Variable storage = allocateVariable(instructions, TypeInstance(binType));
+
+	for (size_t i = 0; i < binType->members.size(); ++i)
+	{
+		auto& member = binType->members[i];
+		size_t initializerIdx = i;
+		if (expr.names.has_value()) {
+			auto& names = expr.names.value();
+			auto it = std::find(names.begin(), names.end(), member.name);
+			if (it == names.end()) {
+				throw SemanticError(expr.sourcePos, fmt::format("Could not find member initializer for: {}", member.name));
+			}
+			initializerIdx = std::distance(names.begin(), it);
+		}
+		auto arg = ExprGenerator::typedContext(env, member.type.type).generate(expr.initializers[initializerIdx]);
+		util::vector_append(instructions, std::move(arg.instructions));
+		//assertIsAssignableType(expr.sourcePos, member.type, arg.output.type);
+		gen::Variable offset = allocateConstant(instructions, member.offset, PrimitiveType::SubType::u16);
+		gen::Variable memberBinding = createBindingWithOffset(instructions, storage, member.type, offset);
+		assignVariable(instructions, memberBinding, arg.output);
+	}
+	returnValue(ILExprResultBuilder{}.withOutput(storage).andInstructions(std::move(instructions)).buildAsTemporary());
 }
 
 // This is somewhat non sensical. Nothing to compile this to.

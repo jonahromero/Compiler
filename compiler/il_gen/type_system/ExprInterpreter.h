@@ -5,14 +5,13 @@
 #include "IntTypes.h"
 #include "TypeSystem.h"
 #include "CompilerError.h"
-#include "Enviroment.h"
 #include "ComputedExpr.h"
 
 class ExprInterpreter :
 	public Expr::VisitorReturner<ComputedExpr>
 {
 public:
-	ExprInterpreter(Enviroment& env);
+	ExprInterpreter(TypeSystem& env);
 	ComputedExpr interpret(Expr::UniquePtr const& expr);
 
 	class NotConstEvaluable : public CompilerError {
@@ -48,7 +47,7 @@ public:
 	};
 
 private:
-	Enviroment& env;
+	TypeSystem& types;
 
 	virtual void visit(Expr::Binary& expr);
 	virtual void visit(Expr::Unary& expr);

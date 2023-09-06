@@ -3,9 +3,9 @@
 #include "ExprGenerator.h"
 
 FunctionEnviroment::FunctionEnviroment(Enviroment& env)
-	: gen::Generator(env), env(env)
+	: gen::GeneratorToolKit(env), env(env)
 {
-	env.startScope();
+	env.newScope();
 }
 
 FunctionEnviroment::~FunctionEnviroment()
@@ -13,13 +13,17 @@ FunctionEnviroment::~FunctionEnviroment()
 	env.destroyScope();
 }
 
-void FunctionEnviroment::addParameters(IL::Program& instructions, std::vector<Stmt::VarDecl> const& parameterDecls)
+std::vector<TypeInstance> FunctionEnviroment::addParameters(IL::Program& instructions, std::vector<Stmt::VarDecl> const& parameterDecls)
 {
+	std::vector<TypeInstance> types;
 	parameters = util::transform_vector(parameterDecls,
 	[&](Stmt::VarDecl const& decl)
 	{
-		return allocateParameter(instructions, decl.name, env.instantiateType(decl.type));
+		auto type = env.types.instantiateType(decl.type);
+		types.push_back(type);
+		return allocateParameter(instructions, decl.name, type);
 	});
+	return types;
 }
 
 IL::Function::Signature FunctionEnviroment::determineILSignature(std::optional<gen::Variable> const& returnVariable)
@@ -64,7 +68,7 @@ IL::Type FunctionEnviroment::determineILReturnType(std::optional<gen::Variable> 
 }
 
 FunctionCaller::FunctionCaller(Enviroment& env, FunctionType const* functionType)
-	: gen::Generator(env), env(env), functionType(functionType)
+	: gen::GeneratorToolKit(env), env(env), functionType(functionType)
 {
 }
 

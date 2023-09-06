@@ -40,6 +40,9 @@ struct TypeInstance
 	TypeInstance(TypePtr type) : type(type) {
 		isMut = isRef = isOpt = false;
 	}
+	bool operator==(TypeInstance const& other) const {
+		return other.type == type && other.isRef == isRef && other.isOpt == isOpt;
+	}
 	TypePtr type;
 	bool isMut, isRef, isOpt;
 };
@@ -77,12 +80,12 @@ struct PrimitiveType final : TypeWithId<PrimitiveType>
 	{
 		switch (subtype) 
 		{
-		case SubType::void_: return false;
+		case SubType::void_: return true;
 		case SubType::bool_: return true;
-		case SubType::u8: return false;
-		case SubType::i8: return true;
-		case SubType::u16: return false;
-		case SubType::i16: return true;
+		case SubType::u8: return true;
+		case SubType::i8: return false;
+		case SubType::u16: return true;
+		case SubType::i16: return false;
 		}
 	}
 	bool isLargestType() const
@@ -106,13 +109,24 @@ struct PrimitiveType final : TypeWithId<PrimitiveType>
 	}
 };
 
-struct ArrayType final : TypeWithId<ArrayType>
+struct ListType final : TypeWithId<ListType>
 {
-	ArrayType(std::string name, size_t size, TypeInstance elementType, std::vector<size_t> indexing)
-		: TypeWithId<ArrayType>(std::move(name), size), elementType(std::move(elementType)), indexing(std::move(indexing)) {}
+	ListType(std::string name, size_t size, TypeInstance elementType, std::vector<size_t> dimensions)
+		: TypeWithId<ListType>(std::move(name), size), elementType(std::move(elementType)), dimensions(std::move(dimensions)) {}
 
 	TypeInstance elementType;
-	std::vector<size_t> indexing;
+	std::vector<size_t> dimensions;
+
+	size_t flatElementCount() const {
+		size_t elements;
+		if (dimensions.empty()) return 0;
+		else elements = dimensions.front();
+		for (size_t i = 1; i < dimensions.size(); ++i) 
+		{
+			elements *= dimensions[i];
+		}
+		return elements;
+	}
 };
 
 struct NoneType final : TypeWithId<NoneType>

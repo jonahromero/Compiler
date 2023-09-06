@@ -4,6 +4,7 @@
 #include "Stmt.h"
 #include "SemanticError.h"
 #include "CtrlFlowGraph.h"
+#include "ExprCloner.h"
 
 
 class CtrlFlowGraphGenerator :
@@ -67,18 +68,29 @@ private:
 			Stmt::GenericDecl{ Stmt::VarDecl(loop.counter, Expr::makeExpr<Expr::Identifier>(loop.sourcePos, "u16")) },
 			false, std::make_optional<Expr::UniquePtr>(std::move(loop.initializer))
 		);
+		Expr::UniquePtr zero = Expr::makeExpr<Expr::Cast>(loop.sourcePos,
+			Expr::makeExpr<Expr::Literal>(loop.sourcePos, Token::Literal(u16{ 0 })),
+			Expr::makeExpr<Expr::Identifier>(loop.sourcePos, "u16")
+		);
 		Expr::UniquePtr condition = Expr::makeExpr<Expr::Binary>(loop.sourcePos, 
 			Expr::makeExpr<Expr::Identifier>(loop.sourcePos, loop.counter), 
 			Token::Type::EQUAL_EQUAL, 
-			Expr::makeExpr<Expr::Literal>(loop.sourcePos, Token::Literal(u16{ 0 }))
+			std::move(zero)
 		);
 		addStmtToCurrentBlock(std::move(varInitializer));
+		currentBlock().splitWith(Expr::Cloner{}.clone(condition));
+		auto [trueBranch, falseBranch] = createChildren();
+
 		auto bodyNode = createTrueChild();
 		auto lastLoopNode = visitStmts(bodyNode, loop.body);
 		cfg.addEdge(lastLoopNode, bodyNode);
 		updateCurrentEntry(lastLoopNode);
 		currentBlock().splitWith(std::move(condition));
-		createFalseChild();
+		updateCurrentEntry(createFalseChild());
+		updateCurrentEntry(trueBranch);
+		/*
+	
+		*/
 	}
 
 	virtual void visit(Stmt::If& ifStmt) override {

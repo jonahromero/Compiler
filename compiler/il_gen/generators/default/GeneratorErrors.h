@@ -10,9 +10,11 @@ namespace gen
 	protected:
 		void assertValidFunctionArgType(SourcePosition pos, TypeInstance param, TypeInstance arg) const;
 		void assertIsAssignableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const;
+		void assertIsCastableType(SourcePosition pos, TypeInstance dest, TypeInstance src) const;
 		void assertValidListLiteral(SourcePosition pos, std::vector<TypeInstance> const& elementTypes, TypeInstance expected) const;
 		void assertCorrectFunctionCall(SourcePosition pos, std::vector<TypeInstance> const& params, std::vector<TypeInstance> const& args);
 
+		ListType const* expectListType(SourcePosition const& pos, TypeInstance const& type);
 		PrimitiveType const* expectPrimitive(SourcePosition const& pos, TypeInstance const& type);
 		FunctionType const* expectCallable(SourcePosition const& pos, TypeInstance const& type);
 		BinType::Field const& expectMember(SourcePosition const& pos, TypeInstance const& type, std::string_view name);

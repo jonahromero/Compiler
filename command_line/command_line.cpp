@@ -23,12 +23,14 @@ bin<U : type> Rectangle:
     top  : Pos<U>
 
 fn equal_msg(var : u8) -> u8: 
-    let error : u16 = 5
-    let arg : mut i16 = 2 + 54 * 82 / 200
+    ;let error : mut i16 = sizeof(Rectangle<u16>)
+    ;error = 2
+    ;let arg : mut i16 = 200 * return_num()
+    ;;count with dur from 30:
     if 10:
-        1
+      2
     else:
-        2 + 33
+      2 + 33
     12
 )";
 
@@ -106,7 +108,7 @@ bin<U : type> Rectangle:
     top  : Pos<U>
 
 fn is_square(rect : Rectangle<u8>) -> bool:
-    let other = deref(0x12) as (u8, bool)->(u8)->bool
+    let other = ref(0x12) as (u8, bool)->(u8)->bool
     let result = other(1, true)
     let temp : Rectangle<u8> = [{
         left:{1, 2},

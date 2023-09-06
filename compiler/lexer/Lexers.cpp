@@ -149,8 +149,13 @@ void Lexer::token() {
 	case '&': match('&') ? addToken(AND) : addToken(BIT_AND); return;
 	case '|': match('|') ? addToken(OR) : addToken(BIT_OR); return;
 	case '.': match('.') ? (match('.') ? addToken(ELLIPSES) : shortEllipses()) : addToken(PERIOD); return;
-	case '$': util::isHexidecimal(peek()) ? hexidecimal() : addToken(PESO); return;
-	case '%': util::isBinary(peek()) ? binary() : addToken(MODULO); return;
+	case '$': addToken(PESO); return;
+	case '%': addToken(MODULO); return;
+	case '0': 
+		if (match('x')) hexidecimal();
+		else if (match('b')) binary();
+		else decimal();
+		return;
 	}
 	if (util::isDigit(letter)) decimal();
 	else if (util::isCharQuote(letter)) character();
@@ -230,14 +235,14 @@ void Lexer::decimal()
 void Lexer::hexidecimal()
 {
 	consumeWhile(util::isHexidecimal);
-	auto literal = util::hexToIntegral<uint16_t>(currentStringView().substr(1));
+	auto literal = util::hexToIntegral<uint16_t>(currentStringView().substr(2));
 	addToken(NUMBER, literal);
 }
 
 void Lexer::binary()
 {
 	consumeWhile(util::isBinary);
-	auto literal = util::binaryToIntegral<uint16_t>(currentStringView().substr(1));
+	auto literal = util::binaryToIntegral<uint16_t>(currentStringView().substr(2));
 	addToken(NUMBER, literal);
 }
 

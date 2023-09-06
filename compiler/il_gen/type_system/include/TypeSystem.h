@@ -5,26 +5,32 @@
 #include "Stmt.h"
 #include "Expr.h"
 #include "Types.h"
+#include "ScopedContainer.h"
 #include "IL.h"
-
-class Enviroment;
 
 class TypeSystem
 {
 public:
-	TypeSystem(Enviroment& env);
+	TypeSystem();
+
+	void newScope();
+	void destroyScope();
 
 	TypePtr addBin(Stmt::Bin bin);
 	TypePtr addBin(std::string name, std::vector<Stmt::VarDecl> decls);
 	TypePtr addFunction(std::vector<TypeInstance> paramTypes, TypeInstance returnType);
 	TypePtr addArray(TypeInstance elementType, size_t elements);
-	TypePtr modifyAndAddArray(ArrayType const* arrayType, size_t elements);
+	TypePtr modifyAndAddArray(ListType const* arrayType, size_t elements);
+	void addAlias(std::string_view name, TypeInstance actualType);
 
-	PrimitiveType const* getPrimitiveType(PrimitiveType::SubType subtype) const;
+	TypeInstance instantiateType(Expr::UniquePtr const& expr);
 	
+	TypeInstance getTypeAlias(std::string_view name) const;
+	bool isTypeAlias(std::string_view name) const;
 	Type const* getType(std::string_view name) const;
 	bool isType(std::string_view name) const;
 	
+	PrimitiveType const* getPrimitiveType(PrimitiveType::SubType subtype) const;
 	TypePtr getVoidType() const;
 
 private:
@@ -44,7 +50,7 @@ private:
 	// Naming
 	std::string createFunctionName(std::vector<TypeInstance> const& paramTypes, TypeInstance const& returnType) const;
 
-	Enviroment& env;
 	std::vector<std::unique_ptr<Type>> types;
+	ScopedContainer<std::unordered_map<std::string_view, TypeInstance>> aliases;
 };
 

@@ -33,6 +33,18 @@ protected:
 		return false;
 	}
 
+	bool matchConsecutive(std::same_as<T> auto...targets) 
+	{
+		size_t i = 0;
+		bool matched = ((current != view.size 
+						&& view.data[current + (i++)] == targets) 
+						&& ...);
+		if(matched) {
+			current += sizeof...(targets);
+		}
+		return matched;
+	}
+
 	void consumeWhile(auto callback) {
 		while (!atEnd() && callback(peek())) {
 			advance();

@@ -3,7 +3,9 @@
 #include <stack>
 #include <queue>
 #include <algorithm>
+#include <unordered_map>
 #include <unordered_set>
+#include <ostream>
 
 struct PureGraph 
 {
@@ -47,7 +49,7 @@ struct PureGraph
         auto end() const { return EdgeIterator<DoPred>(graph, state, true);}
     private:
         PureGraph const& graph;
-        size_t state, out;
+        size_t state;
     };
 
     using PredProxy = EdgeProxy<true>;
@@ -59,8 +61,10 @@ struct PureGraph
     static PureGraph fullyConnected(size_t totalNodes) {
         auto temp = PureGraph(totalNodes);
         for(auto& row : temp.edges) {
-            for(auto edge : row) 
+            for (auto edge : row) {
+                ++temp.totalEdges;
                 edge = true;
+            }
         } 
         return temp;
     }
@@ -72,15 +76,26 @@ struct PureGraph
         edges.emplace_back(std::vector<bool>(edges.size() + 1));
         return totalNodes - 1;
     }
-
+    size_t predecessorCount(size_t node) const { 
+        size_t count = 0; 
+        for (size_t i = 0; i < nodeCount(); ++i)
+            if (hasEdge(i, node)) count++;
+        return count;
+    }
+    size_t successorCount(size_t node) const {
+        return std::count(edges.at(node).begin(), edges.at(node).end(), true);
+    }
     size_t edgeCount() const { return totalEdges; }
     size_t nodeCount() const { return totalNodes; }
     void removeAllEdges(size_t src) { for (auto succ : out(src)) removeEdge(src, succ); }
-    void removeEdge(size_t src, size_t dst) { edges[src][dst] = false; if(hasEdge(src, dst)) totalEdges--;}
-    void addEdge(size_t src, size_t dst) { edges[src][dst] = true; totalEdges++; }
+    void removeEdge(size_t src, size_t dst) { if (hasEdge(src, dst)) totalEdges--; edges[src][dst] = false; }
+    void addEdge(size_t src, size_t dst) { if (!hasEdge(src, dst)) totalEdges++; edges[src][dst] = true; }
     bool hasEdge(size_t src, size_t dst) const { return edges[src][dst]; }
     SuccProxy out(size_t state) const { return SuccProxy{*this, state}; }
     PredProxy in(size_t state) const { return PredProxy{*this, state}; }
+    bool operator==(PureGraph const& other) const {
+        return other.totalNodes == totalNodes && other.edges == edges;
+    }
 
     template<typename Callable>
     void bfs(size_t startNode, Callable callable) const {
@@ -101,7 +116,7 @@ struct PureGraph
 
     template<typename Callable>
     void dfs(size_t startNode, Callable callable) const {
-        std::stack<size_t> worklist; worklist.push(startNode);
+        std::stack<size_t> worklist, order; worklist.push(startNode);
         std::unordered_set<size_t> visited; visited.insert(startNode);
         while (!worklist.empty()) {
             auto n = worklist.top();
@@ -112,10 +127,13 @@ struct PureGraph
                     worklist.push(succ);
                 }
             }
-            callable(n);
+            order.push(n);
+        }
+        while (!order.empty()) {
+            callable(order.top());
+            order.pop();
         }
     }
-
 
 private:
     PureGraph(size_t totalNodes) : totalNodes(totalNodes) {
@@ -127,6 +145,26 @@ private:
     size_t totalNodes = 0, totalEdges = 0;
     std::vector<std::vector<bool>> edges;
 };
+
+inline std::ostream& operator<<(std::ostream& stream, PureGraph const& graph) {
+    if (graph.nodeCount() == 0) {
+        stream << "Empty Graph\n";
+        return stream;
+    }
+    for (size_t i = 0; i < graph.nodeCount(); i++) {
+        stream << "[s:" << i << "] := {";
+        bool first = true;
+        for (size_t out : graph.out(i)) {
+            if (!first) {
+                stream << ", ";
+            }
+            stream << out;
+            first = false;
+        }
+        stream << "}\n";
+    }
+    return stream;
+}
 
 template<typename T>
 struct Graph : PureGraph
@@ -152,3 +190,8 @@ struct Graph : PureGraph
 private:
     std::vector<T> m_nodeData;
 };
+
+using DominanceFrontiers = std::unordered_map<size_t, std::vector<size_t>>;
+
+PureGraph calculateIdom(size_t entry, PureGraph const& graph);
+DominanceFrontiers dominanceFrontier(size_t entry, size_t exit, PureGraph const& graph);

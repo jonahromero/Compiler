@@ -48,9 +48,9 @@ void CtrlFlowGraphFlattener::addBlock(ILCtrlFlowGraph& graph, size_t node)
             block.splitsOn(), currentLabels.at(trueSuccessor))
         );
         auto endLabel = IL::Label(labelCounter++);
-        addBlock(graph, trueSuccessor);
-        program.push_back(IL::makeIL<IL::Jump>(endLabel));
         addBlock(graph, falseSuccessor);
+        program.push_back(IL::makeIL<IL::Jump>(endLabel));
+        addBlock(graph, trueSuccessor);
         program.push_back(IL::makeIL<IL::Label>(endLabel.name));
     }
     else {

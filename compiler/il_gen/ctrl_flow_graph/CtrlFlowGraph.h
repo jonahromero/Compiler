@@ -1,6 +1,7 @@
 
 #pragma once
 #include <string>
+#include <set>
 #include "Graph.h"
 #include "Stmt.h"
 #include "IL.h"
@@ -94,5 +95,6 @@ using ILBlock = GenericBlock<IL::ILBody, IL::Variable>;
 using CtrlFlowGraph = GenericCtrlFlowGraph<Block>;
 using ILCtrlFlowGraph = GenericCtrlFlowGraph<ILBlock>;
 
-std::unordered_map<size_t, std::vector<size_t>> dominanceFrontier(CtrlFlowGraph const& graph);
 IL::Program flattenILCtrlFlowGraph(ILCtrlFlowGraph graph);
+std::set<size_t> renameILGraph(ILCtrlFlowGraph& graph, size_t startId);
+//void placePhiNodes(ILCtrlFlowGraph& graph);

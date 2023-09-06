@@ -103,10 +103,12 @@ auto StmtParser::bin(bool shouldExport) -> Stmt::UniquePtr
 auto StmtParser::funcParams() -> std::vector<Stmt::VarDecl>
 {
 	std::vector<Stmt::VarDecl> retval;
-	do {
-		retval.push_back(varDecl());
-	} while (matchType(COMMA));
-	expect(RIGHT_PARENTH);
+	if (!matchType(RIGHT_PARENTH)) {
+		do {
+			retval.push_back(varDecl());
+		} while (matchType(COMMA));
+		expect(RIGHT_PARENTH);
+	}
 	return retval;
 }
 
